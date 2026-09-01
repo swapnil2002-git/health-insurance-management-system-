@@ -24,3 +24,7 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+        - id: product-plan-service
+          uri: lb://product-plan-service
+          predicates:
+            - Path=/api/products/**,/api/plans/**
