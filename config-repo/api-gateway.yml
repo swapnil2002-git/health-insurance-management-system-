@@ -32,3 +32,7 @@ eureka:
           uri: lb://quotation-service
           predicates:
             - Path=/api/quotes/**
+        - id: risk-service
+          uri: lb://risk-service
+          predicates:
+            - Path=/api/risk-assessments/**
