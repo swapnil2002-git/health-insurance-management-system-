@@ -28,3 +28,7 @@ eureka:
           uri: lb://product-plan-service
           predicates:
             - Path=/api/products/**,/api/plans/**
+        - id: quotation-service
+          uri: lb://quotation-service
+          predicates:
+            - Path=/api/quotes/**

@@ -15,6 +15,7 @@
     </properties>
 
     <modules>
+        <module>services/quotation-service</module>
         <module>services/product-plan-service</module>
         <module>services/customer-service</module>
         <module>infrastructure/config-server</module>
