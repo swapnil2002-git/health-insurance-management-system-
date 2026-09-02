@@ -15,6 +15,7 @@
     </properties>
 
     <modules>
+        <module>services/underwriting-service</module>
         <module>services/risk-service</module>
         <module>services/quotation-service</module>
         <module>services/product-plan-service</module>

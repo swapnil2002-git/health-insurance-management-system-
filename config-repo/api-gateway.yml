@@ -36,3 +36,7 @@ eureka:
           uri: lb://risk-service
           predicates:
             - Path=/api/risk-assessments/**
+        - id: underwriting-service
+          uri: lb://underwriting-service
+          predicates:
+            - Path=/api/underwriting/**
