@@ -40,3 +40,7 @@ eureka:
           uri: lb://underwriting-service
           predicates:
             - Path=/api/underwriting/**
+        - id: policy-service
+          uri: lb://policy-service
+          predicates:
+            - Path=/api/policies/**
