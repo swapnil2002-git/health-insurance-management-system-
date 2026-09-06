@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="customer-service" />
+        <module name="quotation-service" />
+        <module name="provider-service" />
+        <module name="risk-service" />
+        <module name="premium-service" />
+        <module name="config-server" />
+        <module name="product-plan-service" />
+        <module name="underwriting-service" />
+        <module name="payment-service" />
+        <module name="policy-service" />
+        <module name="api-gateway" />
+        <module name="identity-service" />
+        <module name="service-discovery" />
+      </profile>
+    </annotationProcessing>
+  </component>
+</project>

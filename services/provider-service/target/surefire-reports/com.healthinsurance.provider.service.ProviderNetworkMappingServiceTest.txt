@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.healthinsurance.provider.service.ProviderNetworkMappingServiceTest
+-------------------------------------------------------------------------------
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.247 s -- in com.healthinsurance.provider.service.ProviderNetworkMappingServiceTest

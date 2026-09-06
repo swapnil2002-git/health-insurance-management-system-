@@ -16,6 +16,9 @@
 
     <modules>
         <module>services/policy-service</module>
+        <module>services/premium-service</module>
+        <module>services/payment-service</module>
+        <module>services/provider-service</module>
         <module>services/underwriting-service</module>
         <module>services/risk-service</module>
         <module>services/quotation-service</module>

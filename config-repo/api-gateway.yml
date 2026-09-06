@@ -16,14 +16,6 @@ spring:
           uri: lb://customer-service
           predicates:
             - Path=/api/customers/**
-
-server:
-  port: 8080
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
         - id: product-plan-service
           uri: lb://product-plan-service
           predicates:
@@ -44,3 +36,23 @@ eureka:
           uri: lb://policy-service
           predicates:
             - Path=/api/policies/**
+        - id: premium-service
+          uri: lb://premium-service
+          predicates:
+            - Path=/api/premium-schedules/**,/api/policies/*/premium/**
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+        - id: provider-service
+          uri: lb://provider-service
+          predicates:
+            - Path=/api/providers/**,/api/provider-networks/**
+
+server:
+  port: 8080
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
