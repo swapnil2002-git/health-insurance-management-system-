@@ -1,0 +1,56 @@
+groups:
+  - name: hims-alerts
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HIMS Microservice is down"
+          description: "Instance {{ $labels.instance }} (service {{ $labels.service }}) has been unreachable for more than 1 minute."
+
+      - alert: HighHttpErrorRate
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) by (application) / sum(rate(http_server_requests_seconds_count[5m])) by (application) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 5xx error rate detected"
+          description: "Service {{ $labels.application }} has a 5xx error rate above 5% over the last 5 minutes."
+
+      - alert: HighApiLatency
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, application)) > 2.0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 API response time detected"
+          description: "Service {{ $labels.application }} p95 response time exceeds 2.0 seconds for > 3 minutes."
+
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumer_fetch_manager_records_lag_max > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Kafka consumer lag detected"
+          description: "Consumer group on {{ $labels.application }} has maximum lag exceeding 1000 records for > 5 minutes."
+
+      - alert: HighPaymentFailureRate
+        expr: sum(rate(payment_failures_total[5m])) / (sum(rate(payment_requests_total[5m])) + 0.001) > 0.1
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High payment failure rate detected"
+          description: "Payment failure rate exceeds 10% over the last 5 minutes."
+
+      - alert: CircuitBreakerOpen
+        expr: resilience4j_circuitbreaker_state{state="open"} == 1
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Resilience4j Circuit Breaker is OPEN"
+          description: "Circuit breaker {{ $labels.name }} in {{ $labels.application }} is in OPEN state."

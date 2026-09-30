@@ -1,0 +1,224 @@
+<div class="network-mapping-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">
+        <a routerLink="/providers">Providers</a> /
+        <a routerLink="/providers/networks">Networks</a> /
+        <span>Network Assignment & Eligibility</span>
+      </div>
+      <h1>Provider Network Assignment & Eligibility Engine</h1>
+      <p class="subtitle">
+        Enroll healthcare facilities into tier networks and verify live In-Network adjudication status
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button routerLink="/providers/networks">
+        <mat-icon>hub</mat-icon>
+        <span>Network Directory</span>
+      </button>
+      <button mat-stroked-button routerLink="/providers">
+        <mat-icon>local_hospital</mat-icon>
+        <span>Provider Directory</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="two-col-grid">
+    <!-- Left Column: Enroll Provider to Network -->
+    <div class="col-section">
+      <mat-card class="action-card mat-elevation-z2">
+        <div class="card-header">
+          <div class="title-wrap">
+            <mat-icon color="primary">add_link</mat-icon>
+            <h2>Enroll Provider in Network</h2>
+          </div>
+          <span class="badge">ASSIGNMENT</span>
+        </div>
+        <mat-divider></mat-divider>
+
+        <form [formGroup]="mappingForm" (ngSubmit)="onMapSubmit()" class="card-body">
+          <!-- Provider Picker -->
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Select Healthcare Provider</mat-label>
+            <mat-select formControlName="providerId" (selectionChange)="onProviderChange($event.value)">
+              <mat-option *ngFor="let p of providers" [value]="p.providerId">
+                {{ p.providerName }} ({{ p.providerType }}) — {{ p.status }}
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>local_hospital</mat-icon>
+            <mat-error *ngIf="mappingForm.get('providerId')?.hasError('required')">
+              Healthcare provider selection is required.
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Network Picker -->
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Target Network</mat-label>
+            <mat-select formControlName="networkId">
+              <mat-option *ngFor="let n of networks" [value]="n.networkId">
+                {{ n.networkName }} [{{ n.status }}]
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>hub</mat-icon>
+            <mat-error *ngIf="mappingForm.get('networkId')?.hasError('required')">
+              Target network selection is required.
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Active Mapping Toggle -->
+          <div class="toggle-row">
+            <mat-slide-toggle formControlName="active" color="primary">
+              Immediate Active Mapping
+            </mat-slide-toggle>
+            <span class="toggle-hint">If disabled, mapping will be parked as inactive.</span>
+          </div>
+
+          <div class="form-btn-row">
+            <button
+              mat-flat-button
+              color="primary"
+              type="submit"
+              [disabled]="mappingForm.invalid || isSubmittingMapping"
+            >
+              <mat-spinner diameter="18" *ngIf="isSubmittingMapping"></mat-spinner>
+              <mat-icon *ngIf="!isSubmittingMapping">link</mat-icon>
+              <span>Enroll In Network</span>
+            </button>
+          </div>
+        </form>
+      </mat-card>
+
+      <!-- Active Provider Network Enrollments List -->
+      <mat-card class="list-card mat-elevation-z2" *ngIf="mappingForm.get('providerId')?.value">
+        <div class="card-header">
+          <div class="title-wrap">
+            <mat-icon color="accent">badge</mat-icon>
+            <h3>Active Enrolments for Selected Provider</h3>
+          </div>
+          <span class="count-tag">{{ activeProviderMappings.length }} Network(s)</span>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div *ngIf="isLoadingMappings" class="small-loading">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Fetching memberships...</span>
+        </div>
+
+        <div *ngIf="!isLoadingMappings && activeProviderMappings.length === 0" class="small-empty">
+          <mat-icon>info</mat-icon>
+          <span>No current network memberships found for this provider.</span>
+        </div>
+
+        <div class="mapping-list" *ngIf="!isLoadingMappings && activeProviderMappings.length > 0">
+          <div class="mapping-item" *ngFor="let m of activeProviderMappings">
+            <div class="item-main">
+              <strong>{{ m.networkName || getNetworkName(m.networkId) }}</strong>
+              <div class="item-meta">
+                <span class="code-id">Network UUID: {{ m.networkId | slice:0:8 }}...</span>
+                <span class="status-chip" [class.chip-active]="m.active" [class.chip-inactive]="!m.active">
+                  {{ m.active ? 'ACTIVE' : 'INACTIVE' }}
+                </span>
+                <span class="date-txt" *ngIf="m.createdAt">Joined: {{ m.createdAt | date:'mediumDate' }}</span>
+              </div>
+            </div>
+            <button
+              mat-icon-button
+              color="warn"
+              (click)="onRemoveMapping(m.networkId, m.providerId)"
+              matTooltip="Remove from network"
+            >
+              <mat-icon>link_off</mat-icon>
+            </button>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- Right Column: Live In-Network Eligibility Engine -->
+    <div class="col-section">
+      <mat-card class="action-card mat-elevation-z2">
+        <div class="card-header">
+          <div class="title-wrap">
+            <mat-icon class="icon-accent">verified_user</mat-icon>
+            <h2>In-Network Eligibility Verifier</h2>
+          </div>
+          <span class="badge badge-green">CLAIM ENGINE READY</span>
+        </div>
+        <mat-divider></mat-divider>
+
+        <p class="card-desc">
+          Executes the real-time rule engine check used by the Claims microservice to determine
+          In-Network vs Out-Of-Network coverage co-insurance and deductible tariffs.
+        </p>
+
+        <form [formGroup]="eligibilityForm" (ngSubmit)="checkEligibility()" class="card-body">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Network Under Test</mat-label>
+            <mat-select formControlName="networkId">
+              <mat-option *ngFor="let n of networks" [value]="n.networkId">
+                {{ n.networkName }} ({{ n.status }})
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>hub</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Provider Claiming Service</mat-label>
+            <mat-select formControlName="providerId">
+              <mat-option *ngFor="let p of providers" [value]="p.providerId">
+                {{ p.providerName }} [{{ p.providerType }}]
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>local_hospital</mat-icon>
+          </mat-form-field>
+
+          <div class="form-btn-row">
+            <button
+              mat-flat-button
+              color="accent"
+              type="submit"
+              [disabled]="eligibilityForm.invalid || isCheckingEligibility"
+            >
+              <mat-spinner diameter="18" *ngIf="isCheckingEligibility"></mat-spinner>
+              <mat-icon *ngIf="!isCheckingEligibility">fact_check</mat-icon>
+              <span>Verify In-Network Eligibility</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Eligibility Result Card -->
+        <div class="result-box" *ngIf="eligibilityResult" [class.result-eligible]="eligibilityResult.networkProvider" [class.result-ineligible]="!eligibilityResult.networkProvider">
+          <div class="result-header">
+            <mat-icon>{{ eligibilityResult.networkProvider ? 'check_circle' : 'cancel' }}</mat-icon>
+            <div>
+              <h3>{{ eligibilityResult.networkProvider ? 'IN-NETWORK ELIGIBLE' : 'OUT-OF-NETWORK' }}</h3>
+              <p class="result-msg">{{ eligibilityResult.message }}</p>
+            </div>
+          </div>
+          <mat-divider></mat-divider>
+          <div class="result-details">
+            <div class="detail-row">
+              <span class="label">Provider:</span>
+              <span class="value">{{ eligibilityResult.providerName }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Provider Status:</span>
+              <span class="value status-badge" [class.active]="eligibilityResult.providerStatus === 'ACTIVE'">
+                {{ eligibilityResult.providerStatus }}
+              </span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Target Network:</span>
+              <span class="value">{{ eligibilityResult.networkName }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Mapping Active:</span>
+              <span class="value font-bold">{{ eligibilityResult.mappingActive ? 'YES' : 'NO' }}</span>
+            </div>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+  </div>
+</div>

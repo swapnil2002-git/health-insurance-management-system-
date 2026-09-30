@@ -1,0 +1,39 @@
+﻿<mat-toolbar color="primary" class="header-toolbar mat-elevation-z3">
+  <!-- Left Side: Toggle button & Project Title -->
+  <div class="brand-container">
+    <button mat-icon-button (click)="onToggle()" class="sidebar-toggle-btn" title="Toggle Navigation Sidebar">
+      <mat-icon>menu</mat-icon>
+    </button>
+    <div class="brand-text">
+      <mat-icon class="brand-icon">health_and_safety</mat-icon>
+      <span class="brand-title">Health Insurance Management System</span>
+      <span class="env-tag">ENTERPRISE</span>
+    </div>
+  </div>
+
+  <span class="spacer"></span>
+
+  <!-- Right Side: User metadata, Live Date, and Logout -->
+  <div class="user-meta-container">
+    <div class="date-widget" title="Current Application Date">
+      <mat-icon class="date-icon">calendar_today</mat-icon>
+      <span>{{ todayDate | date:'fullDate' }}</span>
+    </div>
+
+    <div class="user-profile-badge">
+      <span class="user-role badge badge-active">{{ role }}</span>
+      <span class="user-name">{{ username }}</span>
+    </div>
+
+    <button
+      mat-stroked-button
+      color="accent"
+      class="logout-btn"
+      (click)="logout()"
+      title="End Current Session"
+    >
+      <mat-icon>logout</mat-icon>
+      <span class="logout-label">Logout</span>
+    </button>
+  </div>
+</mat-toolbar>

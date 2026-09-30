@@ -1,0 +1,183 @@
+<div class="recalc-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Premium Billing / <span>Recalculation</span></div>
+      <h1>Premium Recalculation Engine</h1>
+      <p class="subtitle">Dynamically adjust actuarial base rates, rider additions, or risk surcharges and recalculate future installment schedules</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToSchedules()" class="action-btn">
+        <mat-icon>arrow_back</mat-icon>
+        <span>Schedules</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search / Lookup Bar -->
+  <mat-card class="search-card mat-elevation-z2">
+    <form (ngSubmit)="onSearch()" class="search-form">
+      <mat-icon class="search-icon">search</mat-icon>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Enter Policy ID (UUID) to Recalculate</mat-label>
+        <input matInput [(ngModel)]="policyIdInput" name="policyIdInput" placeholder="e.g. 558597b5-be4a-43d0-b1cf-bbcb2cf56e1e">
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!policyIdInput || isLoading" class="search-btn">
+        <mat-icon [class.spinning]="isLoading">search</mat-icon>
+        <span>Find Schedule</span>
+      </button>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Fetching policy schedule details...</span>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && !schedule" class="empty-state">
+    <mat-icon>calculate</mat-icon>
+    <p>Please enter a Policy UUID above to load the schedule for recalculation.</p>
+  </div>
+
+  <!-- Schedule Loaded -->
+  <div *ngIf="!isLoading && schedule" class="recalc-container">
+    <!-- Current Status Overview Card -->
+    <mat-card class="overview-card mat-elevation-z2">
+      <div class="card-head-row">
+        <div class="title-with-badge">
+          <h2>Policy Schedule #{{ schedule.scheduleId }}</h2>
+          <span class="status-badge status-{{ schedule.premiumStatus | lowercase }}">
+            {{ schedule.premiumStatus }}
+          </span>
+        </div>
+        <div class="stat-pills">
+          <span class="pill-paid">{{ paidInstallmentsCount }} Paid</span>
+          <span class="pill-rem">{{ remainingInstallmentsCount }} Remaining</span>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="overview-grid">
+        <div class="grid-cell">
+          <span class="lbl">Total Premium</span>
+          <span class="val font-bold">{{ schedule.totalPremium | currency:'USD' }}</span>
+        </div>
+        <div class="grid-cell">
+          <span class="lbl">Paid to Date</span>
+          <span class="val text-success">{{ schedule.paidAmount | currency:'USD' }}</span>
+        </div>
+        <div class="grid-cell">
+          <span class="lbl">Outstanding Balance</span>
+          <span class="val text-warn">{{ schedule.outstandingAmount | currency:'USD' }}</span>
+        </div>
+        <div class="grid-cell">
+          <span class="lbl">Frequency</span>
+          <span class="val">{{ schedule.paymentFrequency }} ({{ schedule.numberOfInstallments }} installments)</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Recalculation Form -->
+    <mat-card class="form-card mat-elevation-z2">
+      <div class="card-head-row">
+        <mat-icon color="accent">tune</mat-icon>
+        <h3>Adjustment Parameters for Remaining Installments</h3>
+      </div>
+      <p class="form-subtext">Existing paid installments are immutable. Adjustments will proportionally rebalance remaining unbilled installments.</p>
+      <mat-divider></mat-divider>
+
+      <form [formGroup]="recalcForm" (ngSubmit)="onRecalculate()" class="recalc-form">
+        <div class="form-grid-3">
+          <mat-form-field appearance="outline">
+            <mat-label>New Base Premium ($)</mat-label>
+            <input matInput type="number" formControlName="basePremium" placeholder="Leave blank to keep current">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Rider Surcharge ($)</mat-label>
+            <input matInput type="number" formControlName="riderPremium" placeholder="e.g. 50.00">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Underwriting Risk Loading ($)</mat-label>
+            <input matInput type="number" formControlName="riskLoading" placeholder="e.g. 100.00">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Promotional / Corporate Discount ($)</mat-label>
+            <input matInput type="number" formControlName="discount" placeholder="e.g. 25.00">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Taxes & Statutory Levies ($)</mat-label>
+            <input matInput type="number" formControlName="tax" placeholder="e.g. 120.00">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Payment Frequency</mat-label>
+            <mat-select formControlName="paymentFrequency">
+              <mat-option *ngFor="let f of frequencies" [value]="f.value">{{ f.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="form-actions">
+          <button mat-button type="button" (click)="goToPay()">Go to Installment Payment</button>
+          <button
+            mat-flat-button
+            color="accent"
+            type="submit"
+            [disabled]="isSubmitting"
+            class="submit-btn"
+          >
+            <mat-spinner *ngIf="isSubmitting" diameter="18" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isSubmitting">calculate</mat-icon>
+            <span>{{ isSubmitting ? 'Recalculating...' : 'Recalculate Remaining Installments' }}</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+
+    <!-- Updated Installments Preview -->
+    <mat-card class="timeline-card mat-elevation-z2">
+      <div class="card-head-row">
+        <div class="title-with-badge">
+          <mat-icon color="primary">view_timeline</mat-icon>
+          <h3>Schedule Installments Status ({{ schedule.installments.length }})</h3>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Due Date</th>
+              <th>Installment Amount</th>
+              <th>Paid Amount</th>
+              <th>Outstanding</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let inst of schedule.installments">
+              <td class="font-bold">#{{ inst.installmentNumber }}</td>
+              <td class="date-cell">{{ inst.dueDate }}</td>
+              <td class="amount-cell">{{ inst.amount | currency:'USD' }}</td>
+              <td class="paid-cell">{{ inst.paidAmount | currency:'USD' }}</td>
+              <td class="outstanding-cell">{{ inst.outstandingAmount | currency:'USD' }}</td>
+              <td>
+                <span class="status-badge status-{{ inst.status | lowercase }}">
+                  {{ inst.status }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card>
+  </div>
+</div>

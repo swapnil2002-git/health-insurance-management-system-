@@ -12,6 +12,7 @@ public interface PolicyService {
     PolicyResponse createPolicy(PolicyCreateRequest request);
     PolicyResponse getPolicy(UUID policyId);
     List<PolicyResponse> getAllPolicies();
+    List<PolicyResponse> getPoliciesByCustomerId(UUID customerId);
     
     PolicyResponse issuePolicy(UUID policyId);
     PolicyResponse activatePolicy(UUID policyId);
@@ -19,4 +20,6 @@ public interface PolicyService {
     PolicyResponse addEndorsement(UUID policyId, PolicyEndorsementRequest request);
     PolicyResponse cancelPolicy(UUID policyId, PolicyCancellationRequest request);
     PolicyResponse renewPolicy(UUID policyId);
+
+    PolicyResponse compensatePolicyIssuance(UUID policyId, String reason);
 }

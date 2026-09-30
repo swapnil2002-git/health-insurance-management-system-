@@ -1,0 +1,216 @@
+<div class="endorse-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Policy Management / <span>Endorsement</span></div>
+      <h1>Policy Endorsement Management</h1>
+      <p class="subtitle">Submit mid-term amendments to active policy coverage, add/remove members, or update beneficiary details</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToPolicies()" class="action-btn">
+        <mat-icon>arrow_back</mat-icon>
+        <span>All Policies</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search / Lookup Bar -->
+  <mat-card class="search-card mat-elevation-z2">
+    <form (ngSubmit)="onSearch()" class="search-form">
+      <mat-icon class="search-icon">search</mat-icon>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Enter Active Policy ID (UUID)</mat-label>
+        <input matInput [(ngModel)]="policyIdInput" name="policyIdInput" placeholder="e.g. 48588521-75a0-496f-bcf9-05b1a69549e9">
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!policyIdInput || isLoading" class="search-btn">
+        <mat-icon [class.spinning]="isLoading">search</mat-icon>
+        <span>Find Policy</span>
+      </button>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading policy details...</span>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && !policy" class="empty-state">
+    <mat-icon>edit_calendar</mat-icon>
+    <p>Please enter a Policy UUID above to submit or review endorsements.</p>
+  </div>
+
+  <!-- Policy Loaded -->
+  <div *ngIf="!isLoading && policy" class="endorse-container">
+    <!-- Non-Active Notice if not ACTIVE -->
+    <div *ngIf="policy.status !== 'ACTIVE'" class="warning-banner">
+      <mat-icon>warning</mat-icon>
+      <div>
+        <h4>Policy Status: {{ policy.status }}</h4>
+        <p>Endorsements can only be submitted and applied to <strong>ACTIVE</strong> policies.</p>
+      </div>
+    </div>
+
+    <!-- Policy Summary Header Card -->
+    <mat-card class="summary-card mat-elevation-z2">
+      <div class="sum-head">
+        <div class="sum-title">
+          <h2>{{ policy.policyNumber || 'POLICY CONTRACT' }}</h2>
+          <span class="status-badge status-{{ policy.status | lowercase }}">{{ policy.status }}</span>
+        </div>
+        <span class="term-dates">
+          Term: {{ (policy.effectiveDate | date:'mediumDate') }} — {{ (policy.expiryDate | date:'mediumDate') }}
+        </span>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="sum-grid">
+        <div class="sum-item">
+          <span class="lbl">Customer ID</span>
+          <code class="val">{{ policy.customerId }}</code>
+        </div>
+        <div class="sum-item">
+          <span class="lbl">Plan ID</span>
+          <code class="val">{{ policy.planId }}</code>
+        </div>
+        <div class="sum-item">
+          <span class="lbl">Enrolled Members</span>
+          <span class="val">{{ policy.members.length || 0 }} member(s)</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Endorsement Request Form (Only if ACTIVE) -->
+    <mat-card *ngIf="policy.status === 'ACTIVE'" class="form-card mat-elevation-z2">
+      <div class="card-head-row">
+        <mat-icon color="primary">edit_note</mat-icon>
+        <h3>New Endorsement Application</h3>
+      </div>
+      <mat-divider></mat-divider>
+
+      <form [formGroup]="endorseForm" (ngSubmit)="onSubmitEndorsement()" class="endorse-form">
+        <!-- Endorsement Type Selection -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Endorsement Classification *</mat-label>
+          <mat-select formControlName="endorsementType">
+            <mat-option *ngFor="let t of endorsementTypes" [value]="t.value">
+              <strong>{{ t.label }}</strong> — <span class="opt-desc">{{ t.desc }}</span>
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="endorseForm.get('endorsementType')?.hasError('required')">Type is required</mat-error>
+        </mat-form-field>
+
+        <!-- Description -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Endorsement Purpose / Justification *</mat-label>
+          <input matInput formControlName="description" maxlength="500" placeholder="Specify clearly the exact policy modification requested">
+          <mat-error *ngIf="endorseForm.get('description')?.hasError('required')">Description is required</mat-error>
+          <mat-error *ngIf="endorseForm.get('description')?.hasError('minlength')">Must be at least 5 characters</mat-error>
+          <mat-error *ngIf="endorseForm.get('description')?.hasError('maxlength')">Cannot exceed 500 characters</mat-error>
+        </mat-form-field>
+
+        <!-- Change Details -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Specific Amendment Data / Notes</mat-label>
+          <textarea
+            matInput
+            rows="3"
+            formControlName="changeDetails"
+            maxlength="1000"
+            placeholder="Record relevant details (e.g., Name of dependent, new address, rider requested)..."
+          ></textarea>
+        </mat-form-field>
+
+        <!-- Requested By -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Requested By *</mat-label>
+          <input matInput formControlName="requestedBy" maxlength="100" placeholder="Applicant / Policy Administrator name">
+        </mat-form-field>
+
+        <!-- Submit Button -->
+        <div class="form-actions">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="endorseForm.invalid || isSubmitting"
+            class="submit-btn"
+          >
+            <mat-spinner *ngIf="isSubmitting" diameter="18" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isSubmitting">send</mat-icon>
+            <span>{{ isSubmitting ? 'Submitting Endorsement...' : 'Submit Endorsement Request' }}</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+
+    <!-- Endorsements Audit History -->
+    <mat-card class="history-card mat-elevation-z2">
+      <div class="card-head-row">
+        <div class="title-with-badge">
+          <mat-icon color="primary">history</mat-icon>
+          <h3>Endorsement Log for this Policy</h3>
+        </div>
+        <span class="count-badge">{{ endorsements.length }} Record(s)</span>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div *ngIf="endorsements.length === 0" class="empty-history">
+        <mat-icon>done_all</mat-icon>
+        <p>No endorsement history on record for this policy.</p>
+      </div>
+
+      <div *ngIf="endorsements.length > 0" class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Description</th>
+              <th>Requested By</th>
+              <th>Submitted At</th>
+              <th class="actions-header">Admin Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let e of endorsements">
+              <td class="font-bold">{{ e.endorsementType }}</td>
+              <td>
+                <span class="status-badge status-{{ e.status | lowercase }}">
+                  {{ e.status }}
+                </span>
+              </td>
+              <td>{{ e.description }}</td>
+              <td>{{ e.requestedBy || 'N/A' }}</td>
+              <td class="date-cell">{{ e.createdAt | date:'medium' }}</td>
+              <td class="actions-cell">
+                <button
+                  *ngIf="e.status === 'PENDING'"
+                  mat-stroked-button
+                  class="btn-approve-sm"
+                  (click)="onApprove(e.endorsementId)"
+                  matTooltip="Approve & apply endorsement"
+                >
+                  <mat-icon>check</mat-icon>
+                  <span>Approve</span>
+                </button>
+                <button
+                  *ngIf="e.status === 'PENDING'"
+                  mat-stroked-button
+                  color="warn"
+                  class="btn-reject-sm"
+                  (click)="onReject(e.endorsementId)"
+                  matTooltip="Reject endorsement"
+                >
+                  <mat-icon>close</mat-icon>
+                  <span>Reject</span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card>
+  </div>
+</div>

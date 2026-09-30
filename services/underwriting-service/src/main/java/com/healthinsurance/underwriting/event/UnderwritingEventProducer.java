@@ -14,6 +14,13 @@ public class UnderwritingEventProducer {
 
     public void publishApprovalEvent(UnderwritingApprovedEvent event) {
         log.info("Publishing UnderwritingApprovedEvent to Kafka topic '{}' for Quote ID: {}", TOPIC, event.getQuoteId());
-        kafkaTemplate.send(TOPIC, event.getQuoteId().toString(), event);
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                kafkaTemplate.send(TOPIC, event.getQuoteId().toString(), event);
+                log.info("Successfully published UnderwritingApprovedEvent to Kafka topic '{}' for Quote ID: {}", TOPIC, event.getQuoteId());
+            } catch (Exception ex) {
+                log.error("Failed to publish UnderwritingApprovedEvent to Kafka topic '{}' for Quote ID: {}: {}", TOPIC, event.getQuoteId(), ex.getMessage());
+            }
+        });
     }
 }

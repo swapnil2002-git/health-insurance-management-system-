@@ -1,0 +1,270 @@
+<div class="claims-list-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Claims / <span>Operations Ledger</span></div>
+      <h1>Healthcare Claims Management</h1>
+      <p class="subtitle">
+        Monitor, validate, adjudicate, and settle member & provider medical insurance claims
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button routerLink="/claims/validate">
+        <mat-icon>rule</mat-icon>
+        <span>Validate</span>
+      </button>
+      <button mat-stroked-button routerLink="/claims/eligibility">
+        <mat-icon>verified_user</mat-icon>
+        <span>Eligibility</span>
+      </button>
+      <button mat-stroked-button routerLink="/claims/adjudicate">
+        <mat-icon>gavel</mat-icon>
+        <span>Adjudicate</span>
+      </button>
+      <button mat-stroked-button routerLink="/claims/settle">
+        <mat-icon>paid</mat-icon>
+        <span>Settle</span>
+      </button>
+      <button mat-flat-button color="primary" routerLink="/claims/create">
+        <mat-icon>add</mat-icon>
+        <span>File New Claim</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Overview Strip -->
+  <div class="kpi-grid">
+    <mat-card class="kpi-card mat-elevation-z1">
+      <div class="kpi-icon-wrap icon-blue">
+        <mat-icon>assignment</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Total Claims</span>
+        <span class="kpi-value">{{ totalCount }}</span>
+        <span class="kpi-sub">{{ totalClaimAmount | currency:'USD':'symbol':'1.0-0' }} claimed</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="kpi-card mat-elevation-z1">
+      <div class="kpi-icon-wrap icon-amber">
+        <mat-icon>hourglass_top</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">In Review / Processing</span>
+        <span class="kpi-value text-warn">{{ pendingCount }}</span>
+        <span class="kpi-sub">Validation & eligibility</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="kpi-card mat-elevation-z1">
+      <div class="kpi-icon-wrap icon-green">
+        <mat-icon>check_circle</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Approved / Pending Pay</span>
+        <span class="kpi-value text-success">{{ approvedCount }}</span>
+        <span class="kpi-sub">Ready for settlement</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="kpi-card mat-elevation-z1">
+      <div class="kpi-icon-wrap icon-purple">
+        <mat-icon>receipt_long</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Fully Settled</span>
+        <span class="kpi-value text-purple">{{ settledCount }}</span>
+        <span class="kpi-sub">EOB generated</span>
+      </div>
+    </mat-card>
+  </div>
+
+  <!-- Filter & Search Bar -->
+  <mat-card class="filter-card mat-elevation-z2">
+    <div class="filter-row">
+      <div class="search-box">
+        <mat-icon>search</mat-icon>
+        <input
+          type="text"
+          [(ngModel)]="searchText"
+          (input)="applyFilter()"
+          placeholder="Filter by Claim #, UUID, Policy ID, Member ID..."
+        />
+        <button mat-icon-button *ngIf="searchText" (click)="searchText = ''; applyFilter()">
+          <mat-icon>clear</mat-icon>
+        </button>
+      </div>
+
+      <div class="filter-pills">
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter === 'ALL'"
+          (click)="onFilterChange('ALL')"
+        >
+          All ({{ totalCount }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter === 'SUBMITTED'"
+          (click)="onFilterChange('SUBMITTED')"
+        >
+          Submitted
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter === 'ADJUDICATION'"
+          (click)="onFilterChange('ADJUDICATION')"
+        >
+          Adjudication
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter === 'APPROVED'"
+          (click)="onFilterChange('APPROVED')"
+        >
+          Approved
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter === 'SETTLED'"
+          (click)="onFilterChange('SETTLED')"
+        >
+          Settled
+        </button>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading claims repository...</span>
+  </div>
+
+  <!-- Claims Table Card -->
+  <mat-card class="table-card mat-elevation-z2" *ngIf="!isLoading">
+    <div class="card-header">
+      <div class="title-wrap">
+        <mat-icon color="primary">view_list</mat-icon>
+        <h2>Claims Ledger ({{ filteredClaims.length }})</h2>
+      </div>
+      <span class="count-tag">Showing {{ filteredClaims.length }} of {{ claims.length }} total</span>
+    </div>
+    <mat-divider></mat-divider>
+
+    <!-- Empty State -->
+    <div *ngIf="filteredClaims.length === 0" class="empty-state">
+      <mat-icon>assignment_late</mat-icon>
+      <p>No claims match the selected criteria.</p>
+      <button mat-flat-button color="primary" routerLink="/claims/create">
+        <mat-icon>add</mat-icon>
+        <span>Submit First Claim</span>
+      </button>
+    </div>
+
+    <!-- Data Table -->
+    <div class="table-container" *ngIf="filteredClaims.length > 0">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Claim Number</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Service Date</th>
+            <th>Claim Amount</th>
+            <th>Approved Amount</th>
+            <th>Policy & Member</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let c of filteredClaims" (click)="viewClaim(c.claimId)">
+            <td class="name-cell">
+              <strong>{{ c.claimNumber }}</strong>
+              <span class="sub-id code-font">{{ c.claimId | slice:0:8 }}...</span>
+            </td>
+            <td>
+              <span class="type-pill" [class.cashless]="c.claimType === 'CASHLESS'">
+                {{ c.claimType }}
+              </span>
+            </td>
+            <td>
+              <span class="status-pill status-{{ c.status | lowercase }}">
+                {{ c.status }}
+              </span>
+            </td>
+            <td>{{ c.serviceDate | date:'mediumDate' }}</td>
+            <td class="amount-cell">{{ c.totalClaimAmount | currency:'USD' }}</td>
+            <td class="amount-cell text-success">
+              {{ c.approvedAmount ? (c.approvedAmount | currency:'USD') : '—' }}
+            </td>
+            <td class="meta-cell">
+              <span class="code-font">Pol: {{ c.policyId | slice:0:8 }}...</span>
+              <span class="code-font">Mem: {{ c.memberId | slice:0:8 }}...</span>
+            </td>
+            <td class="actions-cell">
+              <button mat-icon-button (click)="viewClaim(c.claimId)" matTooltip="View Full Dossier">
+                <mat-icon color="primary">visibility</mat-icon>
+              </button>
+
+              <!-- Validate Button -->
+              <button
+                mat-icon-button
+                *ngIf="c.status === 'SUBMITTED' || c.status === 'VALIDATING'"
+                (click)="validateClaim(c.claimId, $event)"
+                matTooltip="Run Rules Validation"
+              >
+                <mat-icon color="accent">rule</mat-icon>
+              </button>
+
+              <!-- Eligibility Button -->
+              <button
+                mat-icon-button
+                *ngIf="c.status === 'ELIGIBILITY_CHECK' || c.status === 'VALIDATING'"
+                (click)="verifyEligibility(c.claimId, $event)"
+                matTooltip="Verify Policy/Provider Eligibility"
+              >
+                <mat-icon class="icon-amber">verified_user</mat-icon>
+              </button>
+
+              <!-- Adjudicate Button -->
+              <button
+                mat-icon-button
+                *ngIf="c.status === 'ADJUDICATION' || c.status === 'PROVIDER_CHECK'"
+                (click)="adjudicateClaim(c.claimId, $event)"
+                matTooltip="Adjudicate Financials"
+              >
+                <mat-icon class="icon-purple">gavel</mat-icon>
+              </button>
+
+              <!-- Settle Button -->
+              <button
+                mat-icon-button
+                *ngIf="c.status === 'APPROVED' || c.status === 'PAYMENT_PENDING'"
+                (click)="settleClaim(c.claimId, $event)"
+                matTooltip="Settle & Issue Payment"
+              >
+                <mat-icon color="primary">paid</mat-icon>
+              </button>
+
+              <!-- View EOB Button -->
+              <button
+                mat-icon-button
+                *ngIf="c.status === 'SETTLED'"
+                (click)="viewEob(c.claimId, $event)"
+                matTooltip="View EOB & Payment History"
+              >
+                <mat-icon class="icon-green">receipt_long</mat-icon>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </mat-card>
+</div>

@@ -1,0 +1,154 @@
+<div class="document-list-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Documents / <span>Hub</span></div>
+      <h1>Healthcare Document Repository Hub</h1>
+      <p class="subtitle">
+        Secure file storage, digital archive, and cross-module document indexing for Claims, Policies, and Customer KYC
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToView()">
+        <mat-icon>search</mat-icon>
+        <span>View by ID</span>
+      </button>
+      <button mat-stroked-button (click)="goToReference()">
+        <mat-icon>link</mat-icon>
+        <span>View by Reference ID</span>
+      </button>
+      <button mat-flat-button color="primary" (click)="goToUpload()">
+        <mat-icon>cloud_upload</mat-icon>
+        <span>Upload Document</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Overview Strip -->
+  <div class="kpi-grid">
+    <mat-card class="kpi-card mat-elevation-z1" (click)="goToUpload('IDENTITY_DOCUMENT')">
+      <div class="kpi-icon-wrap icon-blue">
+        <mat-icon>badge</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Identity & KYC</span>
+        <span class="kpi-value">Passports & IDs</span>
+        <span class="kpi-sub">Customer verification</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="kpi-card mat-elevation-z1" (click)="goToUpload('POLICY_DOCUMENT')">
+      <div class="kpi-icon-wrap icon-green">
+        <mat-icon>policy</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Policy Certificates</span>
+        <span class="kpi-value">Schedules & Wording</span>
+        <span class="kpi-sub">Underwritten coverage</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="kpi-card mat-elevation-z1" (click)="goToUpload('MEDICAL_DOCUMENT')">
+      <div class="kpi-icon-wrap icon-amber">
+        <mat-icon>medical_services</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Clinical & Medical</span>
+        <span class="kpi-value">Records & Reports</span>
+        <span class="kpi-sub">Provider clinical charts</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="kpi-card mat-elevation-z1" (click)="goToUpload('CLAIM_DOCUMENT')">
+      <div class="kpi-icon-wrap icon-purple">
+        <mat-icon>receipt_long</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Claim Bills & EOB</span>
+        <span class="kpi-value">Invoices & EOBs</span>
+        <span class="kpi-sub">Adjudication proofs</span>
+      </div>
+    </mat-card>
+  </div>
+
+  <!-- Quick Universal Search Card -->
+  <mat-card class="search-card mat-elevation-z2">
+    <div class="search-header">
+      <div class="title-wrap">
+        <mat-icon color="primary">manage_search</mat-icon>
+        <h2>Universal Document Retrieval</h2>
+      </div>
+      <div class="search-type-toggle">
+        <button
+          type="button"
+          class="toggle-pill"
+          [class.active]="searchType === 'DOCUMENT'"
+          (click)="searchType = 'DOCUMENT'"
+        >
+          By Document UUID
+        </button>
+        <button
+          type="button"
+          class="toggle-pill"
+          [class.active]="searchType === 'REFERENCE'"
+          (click)="searchType = 'REFERENCE'"
+        >
+          By Business Reference UUID
+        </button>
+      </div>
+    </div>
+    <mat-divider></mat-divider>
+
+    <div class="search-row">
+      <div class="search-input-box">
+        <mat-icon>search</mat-icon>
+        <input
+          type="text"
+          [(ngModel)]="quickSearchId"
+          [placeholder]="searchType === 'DOCUMENT' ? 'Paste Document UUID (e.g. 1a2b3c4d-...)' : 'Paste Claim, Policy, or Member UUID...'"
+          (keyup.enter)="onQuickSearch()"
+        />
+      </div>
+      <button mat-flat-button color="primary" (click)="onQuickSearch()" [disabled]="!quickSearchId.trim()">
+        <mat-icon>arrow_forward</mat-icon>
+        <span>Search</span>
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- Navigation Action Cards -->
+  <div class="portal-grid">
+    <mat-card class="portal-card mat-elevation-z2" (click)="goToUpload()">
+      <div class="card-icon-wrap bg-blue">
+        <mat-icon>cloud_upload</mat-icon>
+      </div>
+      <div class="card-content">
+        <h3>Upload New File</h3>
+        <p>Upload a clinical file, invoice, or identity proof directly to the secure filesystem storage.</p>
+        <span class="card-action-link">Open Upload Form &rarr;</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="portal-card mat-elevation-z2" (click)="goToView()">
+      <div class="card-icon-wrap bg-green">
+        <mat-icon>find_in_page</mat-icon>
+      </div>
+      <div class="card-content">
+        <h3>Inspect Document by UUID</h3>
+        <p>Inspect indexing metadata, MIME type, file size, physical storage path, and download binary file.</p>
+        <span class="card-action-link">Search Document ID &rarr;</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="portal-card mat-elevation-z2" (click)="goToReference()">
+      <div class="card-icon-wrap bg-purple">
+        <mat-icon>hub</mat-icon>
+      </div>
+      <div class="card-content">
+        <h3>Entity Documents Index</h3>
+        <p>Aggregates all attached files associated with a specific Claim ID, Policy ID, or Member ID.</p>
+        <span class="card-action-link">Query Entity Files &rarr;</span>
+      </div>
+    </mat-card>
+  </div>
+</div>

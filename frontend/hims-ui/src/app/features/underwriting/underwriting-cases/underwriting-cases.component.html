@@ -1,0 +1,404 @@
+<div class="cases-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Underwriting / <span>Cases Queue</span></div>
+      <h1>Underwriting Cases & Worklist</h1>
+      <p class="subtitle">Review policy applications, inspect risk evaluations, and render final underwriting decisions</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="loadRecentCases()" class="refresh-btn">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh Queue</span>
+      </button>
+      <button mat-flat-button color="primary" (click)="showCreateForm = !showCreateForm" class="new-case-btn">
+        <mat-icon>{{ showCreateForm ? 'close' : 'add' }}</mat-icon>
+        <span>{{ showCreateForm ? 'Cancel Form' : 'Initialize Case' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Case Selector Card (Customer ID -> Cases Dropdown from DB) -->
+  <mat-card class="selector-card mat-elevation-z2">
+    <div class="selector-container">
+      <div class="filter-header">
+        <mat-icon color="primary">filter_list</mat-icon>
+        <div class="filter-title-wrap">
+          <span class="filter-heading">Customer Underwriting Queue & Case Selection</span>
+          <span class="filter-sub">Enter Customer ID to dynamically load their underwriting cases directly from the database</span>
+        </div>
+      </div>
+
+      <div class="selector-row">
+        <!-- 1. Customer ID Input -->
+        <mat-form-field appearance="outline" class="customer-input">
+          <mat-label>Customer ID (UUID)</mat-label>
+          <input
+            matInput
+            [(ngModel)]="customerIdQuery"
+            (keyup.enter)="searchCasesByCustomer()"
+            placeholder="e.g. 8b680717-99b8-4ba3-8894-2929a3407f84"
+          />
+          <mat-icon matPrefix>person_search</mat-icon>
+          <button
+            mat-icon-button
+            matSuffix
+            (click)="searchCasesByCustomer()"
+            [disabled]="isLoadingCases"
+            title="Fetch cases from DB for Customer"
+          >
+            <mat-icon>search</mat-icon>
+          </button>
+          <mat-hint *ngIf="selectedCustomerName">
+            Insured: <strong>{{ selectedCustomerName }}</strong>
+          </mat-hint>
+          <mat-hint *ngIf="!selectedCustomerName">Enter Customer UUID and press Search</mat-hint>
+        </mat-form-field>
+
+        <!-- 2. Associated Cases Dropdown (loaded from DB via API) -->
+        <mat-form-field appearance="outline" class="case-dropdown">
+          <mat-label>Select Customer Underwriting Case</mat-label>
+          <mat-select
+            [value]="selectedCaseId"
+            (selectionChange)="onSelectCase($event.value)"
+            [disabled]="isLoadingCases || customerCases.length === 0"
+            placeholder="-- Select Case --"
+          >
+            <mat-option *ngIf="customerCases.length === 0" disabled>
+              {{ isLoadingCases ? 'Querying database...' : 'No cases found. Enter Customer ID above.' }}
+            </mat-option>
+            <mat-option *ngFor="let c of customerCases" [value]="c.caseId">
+              <span class="opt-status-badge status-{{ c.status | lowercase }}">[{{ c.status }}]</span>
+              <span class="opt-bold">Case {{ c.caseId | slice:0:8 }}...</span>
+              <span class="opt-dim"> &bull; Quote: {{ c.quoteId | slice:0:8 }}... &bull; {{ c.createdAt | date:'shortDate' }}</span>
+            </mat-option>
+          </mat-select>
+          <mat-icon matPrefix>assignment</mat-icon>
+          <mat-hint *ngIf="customerCases.length > 0">
+            {{ customerCases.length }} case(s) loaded directly from DB
+          </mat-hint>
+          <mat-hint *ngIf="customerCases.length === 0 && !isLoadingCases">
+            Enter Customer ID to populate cases
+          </mat-hint>
+        </mat-form-field>
+
+        <!-- 3. Direct Case / Quote Lookup -->
+        <form (ngSubmit)="onDirectCaseSearch()" class="direct-search-form">
+          <mat-form-field appearance="outline" class="search-input">
+            <mat-label>Or Direct Case UUID</mat-label>
+            <input matInput [(ngModel)]="searchCaseId" name="searchCaseId" placeholder="Case UUID" />
+            <mat-icon matPrefix>gavel</mat-icon>
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="submit" [disabled]="!searchCaseId || isLoading" class="search-btn">
+            <mat-icon [class.spinning]="isLoading">search</mat-icon>
+            <span>Find</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoadingCase" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading case evaluation details...</span>
+  </div>
+
+  <!-- Selected Case Detail & Actions Card -->
+  <mat-card *ngIf="!isLoadingCase && selectedCase" class="case-detail-card mat-elevation-z2">
+    <div class="case-detail-header">
+      <div class="case-identity">
+        <div class="case-title-row">
+          <mat-icon color="primary">assignment</mat-icon>
+          <h2>Case {{ selectedCase.caseId }}</h2>
+          <span class="status-badge status-{{ selectedCase.status | lowercase }}">{{ selectedCase.status }}</span>
+        </div>
+        <span class="case-submeta">
+          Created: {{ selectedCase.createdAt | date:'medium' }}
+          <span *ngIf="selectedCase.completedAt"> &bull; Completed: {{ selectedCase.completedAt | date:'medium' }}</span>
+        </span>
+      </div>
+
+      <!-- Case Action Area -->
+      <div class="case-decision-wrapper">
+        <!-- Notice if already COMPLETED -->
+        <div *ngIf="selectedCase.status === 'COMPLETED'" class="completed-notice-banner">
+          <mat-icon>task_alt</mat-icon>
+          <div class="banner-text">
+            <strong>Case Finalized (COMPLETED)</strong>
+            <span>This underwriting case has already reached its final decision. Decisions cannot be re-rendered. View the dossier or proceed directly to issue the policy.</span>
+          </div>
+          <a
+            mat-flat-button
+            color="primary"
+            [routerLink]="['/policies/issue']"
+            [queryParams]="{ quoteId: selectedCase.quoteId, customerId: selectedCase.customerId, caseId: selectedCase.caseId }"
+            class="banner-issue-btn"
+          >
+            <mat-icon>policy</mat-icon>
+            <span>Issue Policy</span>
+          </a>
+        </div>
+
+        <!-- Action Buttons: Approve, Reject, Refer -->
+        <div class="case-decision-actions">
+          <button
+            mat-flat-button
+            class="btn-approve"
+            (click)="approveCase(selectedCase.caseId)"
+            [disabled]="selectedCase.status === 'COMPLETED'"
+            [title]="selectedCase.status === 'COMPLETED' ? 'Case is already COMPLETED' : 'Authorize coverage with standard terms, premium loadings, or exclusions'"
+          >
+            <mat-icon>verified_user</mat-icon>
+            <span>Approve Case</span>
+          </button>
+
+          <button
+            mat-stroked-button
+            color="warn"
+            class="btn-reject"
+            (click)="rejectCase(selectedCase.caseId)"
+            [disabled]="selectedCase.status === 'COMPLETED'"
+            [title]="selectedCase.status === 'COMPLETED' ? 'Case is already COMPLETED' : 'Decline coverage due to elevated risk or material non-disclosure'"
+          >
+            <mat-icon>cancel</mat-icon>
+            <span>Reject Case</span>
+          </button>
+
+          <button
+            mat-stroked-button
+            color="accent"
+            class="btn-refer"
+            (click)="referCase(selectedCase.caseId)"
+            [disabled]="selectedCase.status === 'COMPLETED'"
+            [title]="selectedCase.status === 'COMPLETED' ? 'Case is already COMPLETED' : 'Escalate case to Senior Underwriter / Chief Medical Officer'"
+          >
+            <mat-icon>forward_to_inbox</mat-icon>
+            <span>Refer Case</span>
+          </button>
+
+          <button
+            mat-stroked-button
+            (click)="viewCase(selectedCase.caseId)"
+            class="btn-view"
+            title="View 360-degree case audit dossier"
+          >
+            <mat-icon>visibility</mat-icon>
+            <span>Full Dossier</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <mat-divider></mat-divider>
+
+    <!-- Key Metadata Grid -->
+    <div class="case-meta-grid">
+      <div class="meta-item">
+        <span class="meta-lbl">Customer ID (UUID)</span>
+        <div class="id-row">
+          <code class="meta-val">{{ selectedCase.customerId }}</code>
+          <button mat-icon-button (click)="copyText(selectedCase.customerId, 'customer')" title="Copy Customer ID">
+            <mat-icon>{{ copiedField === 'customer' ? 'done' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="meta-item">
+        <span class="meta-lbl">Policy Quote ID (UUID)</span>
+        <div class="id-row">
+          <code class="meta-val">{{ selectedCase.quoteId }}</code>
+          <button mat-icon-button (click)="copyText(selectedCase.quoteId, 'quote')" title="Copy Quote ID">
+            <mat-icon>{{ copiedField === 'quote' ? 'done' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="meta-item">
+        <span class="meta-lbl">Risk Assessment ID (UUID)</span>
+        <div class="id-row">
+          <code class="meta-val">{{ selectedCase.assessmentId }}</code>
+          <button mat-icon-button (click)="copyText(selectedCase.assessmentId, 'assessment')" title="Copy Assessment ID">
+            <mat-icon>{{ copiedField === 'assessment' ? 'done' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decisions History summary if already decided -->
+    <div *ngIf="selectedCase.decisions && selectedCase.decisions.length > 0" class="decisions-summary-box">
+      <h4>Decisions Rendered ({{ selectedCase.decisions.length }}):</h4>
+      <div class="decisions-list">
+        <div *ngFor="let d of selectedCase.decisions" class="decision-pill">
+          <mat-icon color="primary">gavel</mat-icon>
+          <div class="pill-info">
+            <strong>{{ d.decisionType }}</strong> &bull; <em>{{ d.reason }}</em>
+            <span class="pill-date">{{ d.decidedAt | date:'medium' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- Empty State when no case is selected yet -->
+  <mat-card *ngIf="!isLoadingCase && !selectedCase" class="empty-guide-card mat-elevation-z1">
+    <div class="empty-content">
+      <div class="empty-icon-circle">
+        <mat-icon>rule</mat-icon>
+      </div>
+      <h3>Select an Underwriting Case</h3>
+      <p>Choose an open case from the dropdown above or enter a Case UUID to inspect its risk profile and render an Approve, Reject, or Refer decision.</p>
+    </div>
+  </mat-card>
+
+  <!-- Manual Case Creation Collapsible Card -->
+  <mat-card *ngIf="showCreateForm" class="create-case-card mat-elevation-z3">
+    <div class="card-head-row">
+      <mat-icon color="primary">post_add</mat-icon>
+      <h3>Initialize Underwriting Case Manually</h3>
+    </div>
+    <p class="form-desc">
+      Manual intake for cases requiring expedited underwriting outside standard event ingestion.
+    </p>
+    <mat-divider></mat-divider>
+
+    <form [formGroup]="createForm" (ngSubmit)="onCreateCase()" class="create-form">
+      <div class="form-grid">
+        <!-- Customer ID -->
+        <mat-form-field appearance="outline">
+          <mat-label>Customer ID (UUID) *</mat-label>
+          <input matInput formControlName="customerId" placeholder="Customer UUID">
+          <mat-error *ngIf="createForm.get('customerId')?.hasError('required')">Required</mat-error>
+        </mat-form-field>
+
+        <!-- Quote ID -->
+        <mat-form-field appearance="outline">
+          <mat-label>Target Quote *</mat-label>
+          <mat-select formControlName="quoteId">
+            <mat-option *ngFor="let q of quotes" [value]="q.quoteId">
+              {{ q.quoteNumber }} ({{ q.status }}) - Customer: {{ q.customerId }}
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="createForm.get('quoteId')?.hasError('required')">Required</mat-error>
+        </mat-form-field>
+
+        <!-- Assessment ID -->
+        <mat-form-field appearance="outline">
+          <mat-label>Risk Assessment ID (UUID) *</mat-label>
+          <input matInput formControlName="assessmentId" placeholder="Risk Assessment UUID">
+          <mat-error *ngIf="createForm.get('assessmentId')?.hasError('required')">Required</mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="createForm.invalid || isSubmitting"
+          class="submit-btn"
+        >
+          <mat-spinner *ngIf="isSubmitting" diameter="18" class="btn-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isSubmitting">check_circle</mat-icon>
+          <span>{{ isSubmitting ? 'Creating Case...' : 'Create Underwriting Case' }}</span>
+        </button>
+      </div>
+    </form>
+  </mat-card>
+
+  <!-- Cases Worklist Card -->
+  <mat-card class="table-card mat-elevation-z2">
+    <div class="card-head-bar">
+      <div class="title-with-badge">
+        <mat-icon color="primary">rule</mat-icon>
+        <h2>Active & Recent Underwriting Worklist ({{ recentCases.length }})</h2>
+      </div>
+    </div>
+    <mat-divider></mat-divider>
+
+    <!-- Empty State -->
+    <div *ngIf="recentCases.length === 0" class="empty-state">
+      <mat-icon>assignment_turned_in</mat-icon>
+      <p>No underwriting cases loaded yet. Search by Case ID above, initialize a case, or complete a Risk Assessment to trigger event ingestion.</p>
+    </div>
+
+    <!-- Table -->
+    <div *ngIf="recentCases.length > 0" class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Case ID</th>
+            <th>Status</th>
+            <th>Customer ID</th>
+            <th>Policy Quote ID</th>
+            <th>Risk Assessment ID</th>
+            <th>Created At</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let c of recentCases">
+            <td class="font-bold code-cell highlight">{{ c.caseId }}</td>
+            <td>
+              <span class="status-badge status-{{ c.status | lowercase }}">
+                {{ c.status }}
+              </span>
+            </td>
+            <td class="code-cell">{{ c.customerId }}</td>
+            <td class="code-cell">{{ c.quoteId }}</td>
+            <td class="code-cell">{{ c.assessmentId }}</td>
+            <td class="date-cell">{{ c.createdAt | date:'mediumDate' }}</td>
+            <td class="actions-col">
+              <!-- View Dossier -->
+              <button
+                mat-stroked-button
+                color="primary"
+                (click)="viewCase(c.caseId)"
+                class="act-btn"
+                title="View Underwriting Dossier"
+              >
+                <mat-icon>visibility</mat-icon>
+                <span>Dossier</span>
+              </button>
+
+              <!-- Decisions (only if not completed) -->
+              <ng-container *ngIf="c.status !== 'COMPLETED'">
+                <button
+                  mat-stroked-button
+                  color="accent"
+                  (click)="approveCase(c.caseId)"
+                  class="act-btn approve-btn"
+                  title="Approve Case"
+                >
+                  <mat-icon>check</mat-icon>
+                  <span>Approve</span>
+                </button>
+
+                <button
+                  mat-stroked-button
+                  color="warn"
+                  (click)="rejectCase(c.caseId)"
+                  class="act-btn"
+                  title="Reject Case"
+                >
+                  <mat-icon>close</mat-icon>
+                  <span>Reject</span>
+                </button>
+
+                <button
+                  mat-stroked-button
+                  (click)="referCase(c.caseId)"
+                  class="act-btn"
+                  title="Refer Case"
+                >
+                  <mat-icon>redo</mat-icon>
+                  <span>Refer</span>
+                </button>
+              </ng-container>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </mat-card>
+</div>

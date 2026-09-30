@@ -1,0 +1,174 @@
+<div class="view-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Risk Assessment / <span>View Assessment</span></div>
+      <h1>Risk Assessment Dossier</h1>
+      <p class="subtitle">Detailed inspection of underwriting factors, actuarial scoring snapshots, and audit trail</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToAssess()" class="action-btn">
+        <mat-icon>add</mat-icon>
+        <span>New Assessment</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search Bar -->
+  <mat-card class="search-card mat-elevation-z2">
+    <form (ngSubmit)="onSearch()" class="search-form">
+      <mat-icon class="search-icon">search</mat-icon>
+      <mat-form-field appearance="outline" class="search-input">
+        <mat-label>Enter Risk Assessment ID (UUID)</mat-label>
+        <input matInput [(ngModel)]="searchId" name="assessmentId" placeholder="e.g. b8f4d9a2-...">
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!searchId || isLoading" class="search-btn">
+        <mat-icon>manage_search</mat-icon>
+        <span>Inspect Dossier</span>
+      </button>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading assessment dossier...</span>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && !assessment" class="empty-state">
+    <mat-icon>speed</mat-icon>
+    <p>Enter a valid Assessment ID above to inspect the underwriting dossier.</p>
+  </div>
+
+  <!-- Assessment Dossier -->
+  <div *ngIf="!isLoading && assessment" class="dossier-wrap">
+    <!-- Top Summary Card -->
+    <mat-card class="dossier-card mat-elevation-z2">
+      <div class="dossier-head">
+        <div class="title-group">
+          <div class="title-row">
+            <h2>Assessment {{ assessment.assessmentId }}</h2>
+            <button mat-icon-button (click)="copyAssessmentId()" title="Copy Assessment ID">
+              <mat-icon>content_copy</mat-icon>
+            </button>
+            <span class="status-badge status-{{ assessment.status | lowercase }}">
+              {{ assessment.status }}
+            </span>
+            <span *ngIf="assessment.classification" class="class-badge class-{{ assessment.classification | lowercase }}">
+              {{ assessment.classification }}
+            </span>
+          </div>
+          <span class="sub-text">
+            Created: {{ assessment.createdAt | date:'medium' }}
+            <span *ngIf="assessment.completedAt"> | Completed: {{ assessment.completedAt | date:'medium' }}</span>
+          </span>
+        </div>
+
+        <div class="score-box" *ngIf="assessment.scores && assessment.scores.length > 0">
+          <span class="score-title">Actuarial Risk Score</span>
+          <span class="score-val">{{ getLatestScore() }}</span>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="meta-row">
+        <div class="meta-cell">
+          <span class="lbl">Customer ID</span>
+          <code class="val">{{ assessment.customerId }}</code>
+        </div>
+        <div class="meta-cell">
+          <span class="lbl">Policy Quote ID</span>
+          <code class="val">{{ assessment.quoteId }}</code>
+        </div>
+        <div class="meta-cell">
+          <span class="lbl">Risk Classification</span>
+          <span class="val font-bold">{{ assessment.classification || 'UNRATED' }}</span>
+        </div>
+        <div class="meta-cell">
+          <span class="lbl">Risk Factors Evaluated</span>
+          <span class="val font-bold">{{ assessment.factors.length }} Factor(s)</span>
+        </div>
+      </div>
+
+      <mat-divider class="action-divider" *ngIf="assessment.status !== 'COMPLETED'"></mat-divider>
+
+      <div class="shortcut-actions" *ngIf="assessment.status !== 'COMPLETED'">
+        <button mat-flat-button color="primary" (click)="goToCalculate()">
+          <mat-icon>speed</mat-icon>
+          <span>Calculate Risk Score Now</span>
+        </button>
+      </div>
+    </mat-card>
+
+    <!-- Risk Factors Table Card -->
+    <mat-card class="section-card mat-elevation-z2">
+      <div class="card-head-bar">
+        <mat-icon color="primary">fact_check</mat-icon>
+        <h3>Underwriting Risk Factors ({{ assessment.factors.length }})</h3>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Factor Name</th>
+              <th>Reported Value</th>
+              <th>Clinical / Underwriting Notes</th>
+              <th>Factor ID</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let f of assessment.factors; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td class="font-bold">{{ f.factorName }}</td>
+              <td><span class="val-pill">{{ f.factorValue }}</span></td>
+              <td>{{ f.description || 'N/A' }}</td>
+              <td class="code-cell">{{ f.riskFactorId }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card>
+
+    <!-- Score Snapshots Card -->
+    <mat-card class="section-card mat-elevation-z2">
+      <div class="card-head-bar">
+        <mat-icon color="primary">history</mat-icon>
+        <h3>Risk Score Audit Trail ({{ assessment.scores.length || 0 }})</h3>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div *ngIf="!assessment.scores || assessment.scores.length === 0" class="no-records">
+        No score calculations recorded yet.
+      </div>
+
+      <div *ngIf="assessment.scores && assessment.scores.length > 0" class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Score</th>
+              <th>Classification Tier</th>
+              <th>Calculated Timestamp</th>
+              <th>Score Record ID</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of assessment.scores">
+              <td class="font-bold score-cell">{{ s.score }}</td>
+              <td>
+                <span class="class-badge class-{{ s.classification | lowercase }}">
+                  {{ s.classification }}
+                </span>
+              </td>
+              <td>{{ s.calculatedAt | date:'medium' }}</td>
+              <td class="code-cell">{{ s.riskScoreId }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card>
+  </div>
+</div>

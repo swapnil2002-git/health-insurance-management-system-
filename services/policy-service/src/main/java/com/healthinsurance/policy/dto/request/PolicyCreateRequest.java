@@ -22,13 +22,16 @@ public class PolicyCreateRequest {
     private Instant expiryDate;
 
     @NotEmpty(message = "At least one member is required")
+    @jakarta.validation.constraints.Size(min = 1, max = 20, message = "Members count cannot exceed 20")
     @Valid
     private List<PolicyMemberRequest> members;
 
     // @NotEmpty removed for MVP testing
+    @jakarta.validation.constraints.Size(max = 20, message = "Coverages count cannot exceed 20")
     @Valid
     private List<PolicyCoverageRequest> coverages;
 
+    @jakarta.validation.constraints.Size(max = 20, message = "Beneficiaries count cannot exceed 20")
     @Valid
     private List<PolicyBeneficiaryRequest> beneficiaries;
 }

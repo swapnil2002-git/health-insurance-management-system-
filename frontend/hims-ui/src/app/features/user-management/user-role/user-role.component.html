@@ -1,0 +1,165 @@
+<div class="user-management-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">User Management / <span>Change Role</span></div>
+      <h1>Assign & Modify User Roles</h1>
+      <p class="subtitle">Modify operational access levels and permission domains across system accounts</p>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    <!-- Role Management Card -->
+    <mat-card class="form-card mat-elevation-z2">
+      <div class="card-title-row">
+        <mat-icon color="primary">admin_panel_settings</mat-icon>
+        <h2>User Role Assignment</h2>
+      </div>
+      <mat-divider></mat-divider>
+
+      <!-- Feedback Success Banner -->
+      <div *ngIf="lastUpdatedMessage" class="info-alert alert-success">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ lastUpdatedMessage }}</span>
+      </div>
+
+      <form [formGroup]="roleForm" class="role-form">
+        <!-- Target Username Search / Input -->
+        <div class="search-row">
+          <mat-form-field appearance="outline" class="username-field">
+            <mat-label>User ID / Username *</mat-label>
+            <input
+              matInput
+              formControlName="username"
+              placeholder="Enter exact username (e.g. jdoe_agent)"
+              (keyup.enter)="onSearchUsername()"
+            >
+            <mat-icon matPrefix class="field-icon">account_circle</mat-icon>
+            <mat-error *ngIf="roleForm.get('username')?.hasError('required')">
+              Username or User ID is required
+            </mat-error>
+          </mat-form-field>
+
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            (click)="onSearchUsername()"
+            class="lookup-btn"
+          >
+            <mat-icon>search</mat-icon>
+            <span>Lookup</span>
+          </button>
+        </div>
+
+        <!-- Matched User Preview (If found in pending queue or user pool) -->
+        <div *ngIf="selectedUser" class="selected-user-card">
+          <div class="user-meta">
+            <span class="user-label">Matched Account:</span>
+            <strong>{{ selectedUser.username }}</strong>
+            <span class="meta-tag">{{ selectedUser.email }}</span>
+          </div>
+          <div class="user-role-current">
+            <span>Current Role:</span>
+            <span class="role-chip">{{ selectedUser.role }}</span>
+          </div>
+        </div>
+
+        <!-- New Role Dropdown -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>New Assigned Role *</mat-label>
+          <mat-select formControlName="newRole" placeholder="Select updated role">
+            <mat-option *ngFor="let r of roles" [value]="r.value">
+              {{ r.label }} ({{ r.value }})
+            </mat-option>
+          </mat-select>
+          <mat-icon matPrefix class="field-icon">security</mat-icon>
+          <mat-error *ngIf="roleForm.get('newRole')?.hasError('required')">
+            Please choose a new system role
+          </mat-error>
+          <mat-hint>Modifying a role updates the user's microservice access tokens on their next login</mat-hint>
+        </mat-form-field>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            (click)="onUpdateRole()"
+            [disabled]="isUpdating || roleForm.invalid"
+            class="action-btn"
+          >
+            <mat-spinner *ngIf="isUpdating" diameter="20" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isUpdating">save</mat-icon>
+            <span>{{ isUpdating ? 'Updating...' : 'Update Role' }}</span>
+          </button>
+
+          <button
+            mat-flat-button
+            color="warn"
+            type="button"
+            (click)="onRejectUser()"
+            [disabled]="isRejecting || !roleForm.get('username')?.value"
+            class="action-btn"
+            title="Reject or revoke pending user"
+          >
+            <mat-spinner *ngIf="isRejecting" diameter="20" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isRejecting">person_off</mat-icon>
+            <span>{{ isRejecting ? 'Rejecting...' : 'Delete / Reject' }}</span>
+          </button>
+
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="resetForm()"
+            [disabled]="isUpdating || isRejecting"
+          >
+            <mat-icon>refresh</mat-icon>
+            <span>Reset</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+
+    <!-- Quick Select From Pending Users Sidebar -->
+    <div class="quick-select-sidebar">
+      <mat-card class="sidebar-card mat-elevation-z2">
+        <div class="card-title-row">
+          <mat-icon color="accent">group</mat-icon>
+          <h3>Active Queue Select</h3>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div class="sidebar-content">
+          <p class="help-text">Click any user below to auto-populate their username and current role:</p>
+
+          <div *ngIf="isLoading" class="loading-state">
+            <mat-spinner diameter="24"></mat-spinner>
+            <span>Loading users...</span>
+          </div>
+
+          <div *ngIf="!isLoading && pendingUsers.length === 0" class="empty-list">
+            <mat-icon>info</mat-icon>
+            <p>No pending users found. You can manually enter any registered username in the search input above.</p>
+          </div>
+
+          <div *ngIf="!isLoading && pendingUsers.length > 0" class="user-quick-list">
+            <div
+              *ngFor="let u of pendingUsers"
+              class="quick-user-item"
+              [class.active-item]="targetUsername === u.username"
+              (click)="selectPendingUser(u)"
+            >
+              <div class="item-main">
+                <span class="item-name">{{ u.username }}</span>
+                <span class="item-email">{{ u.email }}</span>
+              </div>
+              <span class="item-role">{{ u.role }}</span>
+            </div>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+  </div>
+</div>

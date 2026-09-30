@@ -1,0 +1,164 @@
+<div class="address-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Providers / <span>Provider Addresses</span></div>
+      <h1>Manage Provider Facility Addresses</h1>
+      <p class="subtitle">Maintain clinic locations, branch addresses, and billing sites for healthcare providers</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToView()" [disabled]="!provider" class="action-btn">
+        <mat-icon>visibility</mat-icon>
+        <span>View Provider</span>
+      </button>
+      <button mat-stroked-button (click)="goToMapping()" [disabled]="!provider" class="action-btn">
+        <mat-icon>hub</mat-icon>
+        <span>Network Mappings</span>
+      </button>
+      <button mat-stroked-button routerLink="/providers" class="action-btn">
+        <mat-icon>local_hospital</mat-icon>
+        <span>All Providers</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search / Lookup Bar -->
+  <mat-card class="search-card mat-elevation-z2">
+    <form (ngSubmit)="onSearch()" class="search-form">
+      <mat-icon class="search-icon">search</mat-icon>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Enter Provider ID (UUID) to Manage Addresses</mat-label>
+        <input matInput [(ngModel)]="providerIdInput" name="providerIdInput" placeholder="e.g. 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d">
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!providerIdInput || isLoading" class="search-btn">
+        <mat-icon [class.spinning]="isLoading">search</mat-icon>
+        <span>Find Provider</span>
+      </button>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading provider address registry...</span>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && !provider" class="empty-state">
+    <mat-icon>place</mat-icon>
+    <p>Please enter a Provider UUID above to inspect and add facility addresses.</p>
+  </div>
+
+  <!-- Content Section -->
+  <div *ngIf="!isLoading && provider" class="address-content">
+    <!-- Provider Header Overview Card -->
+    <mat-card class="provider-overview-card mat-elevation-z2">
+      <div class="overview-header">
+        <div class="provider-meta">
+          <h2>{{ provider.providerName }}</h2>
+          <span class="type-pill">{{ provider.providerType }}</span>
+          <span class="status-badge status-{{ provider.status | lowercase }}">{{ provider.status }}</span>
+        </div>
+        <span class="id-tag">ID: {{ provider.providerId }}</span>
+      </div>
+      <div class="contact-sub">
+        <span><mat-icon>email</mat-icon> {{ provider.contactEmail || 'No email' }}</span>
+        <span><mat-icon>phone</mat-icon> {{ provider.contactPhone || 'No phone' }}</span>
+      </div>
+    </mat-card>
+
+    <!-- Address Cards Grid -->
+    <div class="addresses-section">
+      <div class="section-title">
+        <mat-icon color="primary">location_city</mat-icon>
+        <h3>Registered Facility Locations ({{ addresses.length }})</h3>
+      </div>
+
+      <div *ngIf="addresses.length === 0" class="no-address-state">
+        <mat-icon>wrong_location</mat-icon>
+        <p>No addresses recorded yet for this facility. Add one below.</p>
+      </div>
+
+      <div class="address-grid" *ngIf="addresses.length > 0">
+        <mat-card *ngFor="let addr of addresses" class="addr-card mat-elevation-z1" [class.primary-card]="addr.primary">
+          <div class="addr-head">
+            <span class="primary-badge" *ngIf="addr.primary">
+              <mat-icon>star</mat-icon> Primary Facility
+            </span>
+            <span *ngIf="!addr.primary" class="secondary-badge">Secondary Branch</span>
+            <button mat-icon-button color="warn" (click)="deleteAddress(addr.providerAddressId)" [disabled]="deletingId === addr.providerAddressId" matTooltip="Delete Location">
+              <mat-icon [class.spinning]="deletingId === addr.providerAddressId">delete</mat-icon>
+            </button>
+          </div>
+          <div class="addr-body">
+            <span class="street-line">{{ addr.streetAddress }}</span>
+            <span class="city-line">{{ addr.city }}, {{ addr.state }} {{ addr.postalCode }}</span>
+            <span class="country-line">{{ addr.country || 'USA' }}</span>
+          </div>
+          <div class="addr-foot">
+            <span class="addr-id code-font">ID: {{ addr.providerAddressId | slice:0:8 }}...</span>
+          </div>
+        </mat-card>
+      </div>
+    </div>
+
+    <!-- Add New Address Form Card -->
+    <mat-card class="form-card mat-elevation-z2">
+      <div class="card-head">
+        <mat-icon color="primary">add_location_alt</mat-icon>
+        <h3>Add New Facility Location</h3>
+      </div>
+      <p class="form-subtext">Add a new physical site, medical suite, or branch address for this provider.</p>
+      <mat-divider></mat-divider>
+
+      <form [formGroup]="addressForm" (ngSubmit)="onAddAddress()" class="address-form">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Street Address</mat-label>
+          <input matInput formControlName="streetAddress" placeholder="e.g. 100 Medical Center Blvd, Suite 400">
+          <mat-error *ngIf="addressForm.get('streetAddress')?.hasError('required')">Street address is required</mat-error>
+        </mat-form-field>
+
+        <div class="form-row-3">
+          <mat-form-field appearance="outline">
+            <mat-label>City</mat-label>
+            <input matInput formControlName="city" placeholder="e.g. Chicago">
+            <mat-error *ngIf="addressForm.get('city')?.hasError('required')">City is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>State</mat-label>
+            <input matInput formControlName="state" placeholder="e.g. IL">
+            <mat-error *ngIf="addressForm.get('state')?.hasError('required')">State is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Postal Code</mat-label>
+            <input matInput formControlName="postalCode" placeholder="e.g. 60601">
+            <mat-error *ngIf="addressForm.get('postalCode')?.hasError('required')">Postal code is required</mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Country</mat-label>
+            <input matInput formControlName="country" placeholder="e.g. USA">
+          </mat-form-field>
+
+          <div class="checkbox-col">
+            <label class="custom-checkbox-label">
+              <input type="checkbox" formControlName="primary">
+              <span>Set as Primary Facility Location</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button mat-flat-button color="primary" type="submit" [disabled]="addressForm.invalid || isAdding" class="add-btn">
+            <mat-icon [class.spinning]="isAdding">add</mat-icon>
+            <span>{{ isAdding ? 'Adding Address...' : 'Add Facility Address' }}</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+  </div>
+</div>

@@ -22,7 +22,11 @@ public class PremiumPaidConsumer {
         log.info("PREMIUM SERVICE KAFKA LISTENER: Received raw message on 'premium-events': {}", message);
 
         try {
-            PremiumPaidEvent event = objectMapper.readValue(message, PremiumPaidEvent.class);
+            String cleanMessage = message;
+            if (cleanMessage != null && cleanMessage.startsWith("\"") && cleanMessage.endsWith("\"")) {
+                cleanMessage = objectMapper.readValue(cleanMessage, String.class);
+            }
+            PremiumPaidEvent event = objectMapper.readValue(cleanMessage, PremiumPaidEvent.class);
             if (event.getInstallmentId() == null) {
                 log.warn("Installment ID is null in PremiumPaidEvent. Skipping installment ledger update.");
                 return;

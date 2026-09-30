@@ -1,0 +1,199 @@
+<div class="claim-adjudicate-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">
+        <a routerLink="/claims">Claims</a> / <span>Financial Adjudication</span>
+      </div>
+      <h1>Financial Adjudication & Payout Decision</h1>
+      <p class="subtitle">
+        Apply deductible limits, policy copay tariffs, and calculate insurer payable vs customer responsibility
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button routerLink="/claims">
+        <mat-icon>arrow_back</mat-icon>
+        <span>Back to Ledger</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search Card -->
+  <mat-card class="search-card mat-elevation-z2">
+    <div class="search-container">
+      <form [formGroup]="searchForm" (ngSubmit)="onSearch()" class="search-form">
+        <mat-icon class="search-icon">gavel</mat-icon>
+
+        <!-- Claim No. / Claim ID Text Search -->
+        <mat-form-field appearance="outline" class="search-field">
+          <mat-label>Claim No. / Claim ID</mat-label>
+          <input
+            matInput
+            formControlName="claimQuery"
+            placeholder="Enter Claim No. (e.g. CLM-...) or Claim UUID"
+          />
+          <mat-icon matPrefix>search</mat-icon>
+          <mat-hint>Search by Claim Number or 36-char Claim UUID</mat-hint>
+          <mat-error *ngIf="searchForm.get('claimQuery')?.hasError('required')">
+            Claim No. or Claim ID is required.
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Registered Claims Dropdown Picker -->
+        <mat-form-field appearance="outline" class="dropdown-field" *ngIf="availableClaims.length > 0">
+          <mat-label>Select Registered Claim</mat-label>
+          <mat-select (selectionChange)="onClaimSelect($event.value)" [value]="claim?.claimId || ''">
+            <mat-option *ngFor="let c of availableClaims" [value]="c.claimId">
+              <span class="opt-bold">{{ c.claimNumber }}</span>
+              <span class="opt-dim"> &bull; {{ c.totalClaimAmount | currency:'USD' }} &bull; </span>
+              <span class="status-badge status-{{ c.status | lowercase }}">{{ c.status }}</span>
+            </mat-option>
+          </mat-select>
+          <mat-icon matPrefix>assignment</mat-icon>
+          <mat-hint>{{ availableClaims.length }} claim(s) available</mat-hint>
+        </mat-form-field>
+
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="fetch-btn"
+          [disabled]="searchForm.invalid || isLoadingClaim"
+        >
+          <mat-spinner diameter="18" *ngIf="isLoadingClaim"></mat-spinner>
+          <mat-icon *ngIf="!isLoadingClaim">search</mat-icon>
+          <span>Fetch Claim</span>
+        </button>
+      </form>
+    </div>
+  </mat-card>
+
+  <!-- Claim Context Strip -->
+  <mat-card class="context-card mat-elevation-z2" *ngIf="claim">
+    <div class="context-row">
+      <div class="context-info">
+        <div class="title-row">
+          <h2>{{ claim.claimNumber }}</h2>
+          <span class="status-pill status-{{ claim.status | lowercase }}">
+            {{ claim.status }}
+          </span>
+          <span class="type-pill">{{ claim.claimType }}</span>
+        </div>
+        <div class="meta-row">
+          <span>Claim Total: <strong>{{ claim.totalClaimAmount | currency:'USD' }}</strong></span>
+          <span>Policy: <strong class="code-font">{{ claim.policyId | slice:0:8 }}...</strong></span>
+          <span>Member: <strong class="code-font">{{ claim.memberId | slice:0:8 }}...</strong></span>
+        </div>
+      </div>
+
+      <div class="context-actions">
+        <button mat-stroked-button (click)="viewDossier()">
+          <mat-icon>visibility</mat-icon>
+          <span>Dossier</span>
+        </button>
+        <button
+          mat-flat-button
+          color="accent"
+          (click)="adjudicate()"
+          [disabled]="isAdjudicating"
+        >
+          <mat-spinner diameter="18" *ngIf="isAdjudicating"></mat-spinner>
+          <mat-icon *ngIf="!isAdjudicating">calculate</mat-icon>
+          <span>{{ adjudication ? 'Re-Adjudicate Claim' : 'Execute Adjudication' }}</span>
+        </button>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- Financial Breakdown Card -->
+  <mat-card class="breakdown-card mat-elevation-z2" *ngIf="adjudication">
+    <div class="card-header">
+      <div class="title-wrap">
+        <mat-icon color="primary">account_balance_wallet</mat-icon>
+        <h2>Adjudication Decision & Tariff Calculations</h2>
+      </div>
+      <span class="decision-badge decision-{{ adjudication.decision | lowercase }}">
+        DECISION: {{ adjudication.decision }}
+      </span>
+    </div>
+    <mat-divider></mat-divider>
+
+    <!-- Financial Metrics Grid -->
+    <div class="metrics-grid">
+      <div class="metric-box box-blue">
+        <span class="m-label">Submitted Amount</span>
+        <span class="m-val">{{ adjudication.submittedAmount | currency:'USD' }}</span>
+        <span class="m-sub">Gross claim value</span>
+      </div>
+
+      <div class="metric-box box-teal">
+        <span class="m-label">Allowed Amount</span>
+        <span class="m-val">{{ adjudication.allowedAmount | currency:'USD' }}</span>
+        <span class="m-sub">Fee schedule ceiling</span>
+      </div>
+
+      <div class="metric-box box-amber">
+        <span class="m-label">Deductible Applied</span>
+        <span class="m-val">{{ adjudication.deductibleAmount | currency:'USD' }}</span>
+        <span class="m-sub">Annual member deductible</span>
+      </div>
+
+      <div class="metric-box box-purple">
+        <span class="m-label">Copay Amount ({{ adjudication.copayPercentage }}%)</span>
+        <span class="m-val">{{ adjudication.copayAmount | currency:'USD' }}</span>
+        <span class="m-sub">Patient coinsurance</span>
+      </div>
+    </div>
+
+    <!-- Final Responsibility Comparison Strip -->
+    <div class="payout-banner">
+      <div class="banner-section banner-insurer">
+        <div class="b-icon"><mat-icon>shield</mat-icon></div>
+        <div class="b-details">
+          <span class="b-title">INSURER PAYABLE AMOUNT</span>
+          <span class="b-amount">{{ adjudication.payableAmount | currency:'USD' }}</span>
+          <span class="b-note">Direct reimbursement / provider disbursement</span>
+        </div>
+      </div>
+
+      <div class="banner-section banner-patient">
+        <div class="b-icon"><mat-icon>person</mat-icon></div>
+        <div class="b-details">
+          <span class="b-title">CUSTOMER RESPONSIBILITY</span>
+          <span class="b-amount">{{ adjudication.customerResponsibility | currency:'USD' }}</span>
+          <span class="b-note">Deductible + copay out-of-pocket</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reason & Clinical Justification -->
+    <div class="reason-box" *ngIf="adjudication.reason">
+      <mat-icon>info</mat-icon>
+      <div>
+        <strong>Adjudication Notes / Clinical Justification:</strong>
+        <p>{{ adjudication.reason }}</p>
+      </div>
+    </div>
+
+    <mat-divider></mat-divider>
+
+    <!-- Pipeline Next Step Action -->
+    <div class="next-step-bar">
+      <div class="step-guide">
+        <mat-icon>arrow_forward</mat-icon>
+        <span>
+          Next Pipeline Step: Settle approved claim and issue payment reference to generate Explanation of Benefits (EOB).
+        </span>
+      </div>
+      <button
+        mat-flat-button
+        color="primary"
+        (click)="proceedToSettle()"
+        [disabled]="adjudication.decision !== 'APPROVED'"
+      >
+        <mat-icon>paid</mat-icon>
+        <span>Proceed to Claim Settlement</span>
+      </button>
+    </div>
+  </mat-card>
+</div>

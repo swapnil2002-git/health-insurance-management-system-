@@ -20,4 +20,6 @@ public interface PaymentService {
     PaymentResponse getPayment(UUID paymentId);
 
     List<PaymentResponse> getPaymentsByPolicy(UUID policyId);
+
+    List<PaymentResponse> getAllPayments();
 }

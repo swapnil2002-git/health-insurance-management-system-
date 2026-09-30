@@ -1,0 +1,116 @@
+<div class="report-policies-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon">
+        <mat-icon>policy</mat-icon>
+      </div>
+      <div>
+        <h1 class="page-title">Policy Distribution & Lifecycle Report</h1>
+        <p class="page-subtitle">Aggregated daily metrics on policy issuances, active coverage, expirations, and cancellations</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button color="primary" routerLink="/reports/summary">
+        <mat-icon>dashboard</mat-icon>
+        <span>Executive Dashboard</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Date Range Filter Toolbar -->
+  <mat-card class="filter-card mat-elevation-z1">
+    <form [formGroup]="filterForm" (ngSubmit)="loadReport()" class="filter-form">
+      <mat-form-field appearance="outline">
+        <mat-label>Start Date</mat-label>
+        <input matInput type="date" formControlName="startDate" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>End Date</mat-label>
+        <input matInput type="date" formControlName="endDate" />
+      </mat-form-field>
+
+      <div class="filter-btns">
+        <button mat-flat-button color="primary" type="submit" [disabled]="isLoading">
+          <mat-spinner diameter="18" *ngIf="isLoading"></mat-spinner>
+          <mat-icon *ngIf="!isLoading">filter_list</mat-icon>
+          <span>Apply Filter</span>
+        </button>
+        <button mat-button type="button" (click)="resetFilter()" [disabled]="isLoading">Reset</button>
+      </div>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="40"></mat-spinner>
+    <span>Generating policy distribution report...</span>
+  </div>
+
+  <!-- Report Data Container -->
+  <div class="report-content" *ngIf="!isLoading && report">
+    <!-- Period Overview Summary Cards -->
+    <div class="overview-grid">
+      <mat-card class="sum-card mat-elevation-z1 text-blue">
+        <span class="sc-lbl">Overall Issued</span>
+        <span class="sc-val">{{ report.overallPoliciesIssued || 0 }}</span>
+        <span class="sc-sub">Policies written</span>
+      </mat-card>
+
+      <mat-card class="sum-card mat-elevation-z1 text-green">
+        <span class="sc-lbl">Overall Active</span>
+        <span class="sc-val">{{ report.overallPoliciesActive || 0 }}</span>
+        <span class="sc-sub">Under active risk</span>
+      </mat-card>
+
+      <mat-card class="sum-card mat-elevation-z1 text-orange">
+        <span class="sc-lbl">Overall Expired</span>
+        <span class="sc-val">{{ report.overallPoliciesExpired || 0 }}</span>
+        <span class="sc-sub">Completed term</span>
+      </mat-card>
+
+      <mat-card class="sum-card mat-elevation-z1 text-red">
+        <span class="sc-lbl">Overall Cancelled</span>
+        <span class="sc-val">{{ report.overallPoliciesCancelled || 0 }}</span>
+        <span class="sc-sub">Terminated / lapsed</span>
+      </mat-card>
+    </div>
+
+    <!-- Daily Breakdown Table -->
+    <mat-card class="table-card mat-elevation-z2">
+      <div class="table-header">
+        <h3>Daily Policy Summary Breakdown</h3>
+        <span class="date-range-badge">{{ report.startDate }} &mdash; {{ report.endDate }}</span>
+      </div>
+
+      <div class="empty-table-msg" *ngIf="!report.dailySummaries || report.dailySummaries.length === 0">
+        <mat-icon>event_busy</mat-icon>
+        <p>No daily policy summary records found for this date range.</p>
+      </div>
+
+      <div class="table-responsive" *ngIf="report.dailySummaries && report.dailySummaries.length > 0">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Policies Issued</th>
+              <th>Active Policies</th>
+              <th>Expired</th>
+              <th>Cancelled</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of report.dailySummaries">
+              <td class="font-bold">{{ row.summaryDate }}</td>
+              <td><span class="pill-blue">{{ row.totalPoliciesIssued }}</span></td>
+              <td><span class="pill-green">{{ row.totalPoliciesActive }}</span></td>
+              <td><span class="pill-orange">{{ row.totalPoliciesExpired }}</span></td>
+              <td><span class="pill-red">{{ row.totalPoliciesCancelled }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card>
+  </div>
+</div>

@@ -21,7 +21,11 @@ public class PolicyActivationConsumer {
         log.info("POLICY SERVICE KAFKA LISTENER: Received raw message on 'premium-events': {}", message);
 
         try {
-            PremiumPaidEvent event = objectMapper.readValue(message, PremiumPaidEvent.class);
+            String cleanMessage = message;
+            if (cleanMessage != null && cleanMessage.startsWith("\"") && cleanMessage.endsWith("\"")) {
+                cleanMessage = objectMapper.readValue(cleanMessage, String.class);
+            }
+            PremiumPaidEvent event = objectMapper.readValue(cleanMessage, PremiumPaidEvent.class);
             if (event.getPolicyId() == null) {
                 log.warn("Policy ID is null in PremiumPaidEvent. Skipping activation.");
                 return;

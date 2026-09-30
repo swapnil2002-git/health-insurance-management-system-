@@ -1,0 +1,405 @@
+<div class="claim-view-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">
+        <a routerLink="/claims">Claims</a> / <span>Dossier Inspection</span>
+      </div>
+      <h1>Comprehensive Claim Dossier</h1>
+      <p class="subtitle">
+        Inspect complete claims lifecycle: line items, diagnoses, attached clinical documentation, and adjudication breakdown
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button routerLink="/claims">
+        <mat-icon>arrow_back</mat-icon>
+        <span>Back to Ledger</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search Card -->
+  <mat-card class="search-card mat-elevation-z2">
+    <form [formGroup]="searchForm" (ngSubmit)="onSearch()" class="search-form">
+      <mat-icon class="search-icon">description</mat-icon>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Enter Claim UUID or Human-Readable Claim # (e.g. CLM-2026-...)</mat-label>
+        <input matInput formControlName="query" placeholder="Enter claim UUID or claim number" />
+        <mat-error *ngIf="searchForm.get('query')?.hasError('required')">
+          Search query is required.
+        </mat-error>
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="searchForm.invalid || isLoading">
+        <mat-spinner diameter="18" *ngIf="isLoading"></mat-spinner>
+        <mat-icon *ngIf="!isLoading">search</mat-icon>
+        <span>Inspect Dossier</span>
+      </button>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading dossier records...</span>
+  </div>
+
+  <!-- Main Dossier Content -->
+  <div *ngIf="claim && !isLoading" class="dossier-layout">
+    <!-- Header Banner Card -->
+    <mat-card class="banner-card mat-elevation-z2">
+      <div class="banner-header">
+        <div class="b-title">
+          <div class="pills-row">
+            <span class="status-pill status-{{ claim.status | lowercase }}">{{ claim.status }}</span>
+            <span class="type-pill">{{ claim.claimType }}</span>
+          </div>
+          <h2>{{ claim.claimNumber }}</h2>
+          <span class="uuid-txt code-font">UUID: {{ claim.claimId }}</span>
+        </div>
+
+        <!-- Lifecycle Navigation Actions -->
+        <div class="pipeline-actions">
+          <button mat-stroked-button color="accent" (click)="goToValidate()">
+            <mat-icon>rule</mat-icon>
+            <span>Validate</span>
+          </button>
+          <button mat-stroked-button color="accent" (click)="goToEligibility()">
+            <mat-icon>verified_user</mat-icon>
+            <span>Eligibility</span>
+          </button>
+          <button mat-stroked-button color="primary" (click)="goToAdjudicate()">
+            <mat-icon>gavel</mat-icon>
+            <span>Adjudicate</span>
+          </button>
+          <button mat-stroked-button color="primary" (click)="goToSettle()">
+            <mat-icon>paid</mat-icon>
+            <span>Settle</span>
+          </button>
+          <button mat-flat-button color="accent" (click)="goToEob()" *ngIf="claim.status === 'SETTLED' || claim.explanationOfBenefits">
+            <mat-icon>receipt_long</mat-icon>
+            <span>View EOB</span>
+          </button>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+
+      <!-- Key Metadata Grid -->
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="m-lbl">Policy ID</span>
+          <span class="m-val code-font">{{ claim.policyId }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="m-lbl">Insured Member ID</span>
+          <span class="m-val code-font">{{ claim.memberId }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="m-lbl">Provider Facility ID</span>
+          <span class="m-val code-font">{{ claim.providerId }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="m-lbl">Total Claimed</span>
+          <span class="m-val font-bold">{{ claim.totalClaimAmount | currency:'USD' }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="m-lbl">Approved Amount</span>
+          <span class="m-val font-bold text-success">
+            {{ claim.approvedAmount ? (claim.approvedAmount | currency:'USD') : 'Pending Adjudication' }}
+          </span>
+        </div>
+        <div class="meta-item">
+          <span class="m-lbl">Service Date</span>
+          <span class="m-val">{{ claim.serviceDate | date:'mediumDate' }}</span>
+        </div>
+        <div class="meta-item" *ngIf="claim.admissionDate">
+          <span class="m-lbl">Admission Date</span>
+          <span class="m-val">{{ claim.admissionDate | date:'mediumDate' }}</span>
+        </div>
+        <div class="meta-item" *ngIf="claim.dischargeDate">
+          <span class="m-lbl">Discharge Date</span>
+          <span class="m-val">{{ claim.dischargeDate | date:'mediumDate' }}</span>
+        </div>
+        <div class="meta-item" *ngIf="claim.remarks">
+          <span class="m-lbl">Clinical Remarks</span>
+          <span class="m-val remarks-text">{{ claim.remarks }}</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Two-Column Body: Left (Service Lines & Diagnoses), Right (Adjudication & Documents) -->
+    <div class="body-grid">
+      <!-- Left Column -->
+      <div class="col-stack">
+        <!-- Billable Service Lines Card -->
+        <mat-card class="section-card mat-elevation-z2">
+          <div class="card-header">
+            <div class="title-wrap">
+              <mat-icon color="primary">receipt</mat-icon>
+              <h3>Billable Service Lines ({{ (claim.serviceLines || []).length }})</h3>
+            </div>
+            <button mat-stroked-button (click)="showAddLine = !showAddLine">
+              <mat-icon>{{ showAddLine ? 'close' : 'add' }}</mat-icon>
+              <span>{{ showAddLine ? 'Cancel' : 'Add Line Item' }}</span>
+            </button>
+          </div>
+          <mat-divider></mat-divider>
+
+          <!-- Add Line Item Drawer -->
+          <div class="inline-form-card" *ngIf="showAddLine">
+            <h4>Add Billable Procedure / Line Item</h4>
+            <form [formGroup]="serviceLineForm" (ngSubmit)="addServiceLine()" class="inline-form">
+              <mat-form-field appearance="outline">
+                <mat-label>Service Code</mat-label>
+                <input matInput formControlName="serviceCode" placeholder="SRV-02" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="col-span-2">
+                <mat-label>Description</mat-label>
+                <input matInput formControlName="serviceDescription" placeholder="Description..." />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Service Date</mat-label>
+                <input matInput type="date" formControlName="serviceDate" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Unit Price ($)</mat-label>
+                <input matInput type="number" formControlName="unitPrice" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Quantity</mat-label>
+                <input matInput type="number" formControlName="quantity" />
+              </mat-form-field>
+
+              <div class="form-btn-row col-span-2">
+                <button mat-flat-button color="primary" type="submit" [disabled]="serviceLineForm.invalid || isAddingLine">
+                  <mat-spinner diameter="18" *ngIf="isAddingLine"></mat-spinner>
+                  <mat-icon *ngIf="!isAddingLine">save</mat-icon>
+                  <span>Save Line Item</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Service Description</th>
+                  <th>Date</th>
+                  <th>Unit Price</th>
+                  <th>Qty</th>
+                  <th>Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let s of claim.serviceLines">
+                  <td class="font-bold">{{ s.serviceCode }}</td>
+                  <td>{{ s.serviceDescription }}</td>
+                  <td>{{ s.serviceDate | date:'shortDate' }}</td>
+                  <td>{{ s.unitPrice | currency:'USD' }}</td>
+                  <td>{{ s.quantity }}</td>
+                  <td class="font-bold text-success">{{ s.totalAmount | currency:'USD' }}</td>
+                </tr>
+                <tr *ngIf="!claim.serviceLines || claim.serviceLines.length === 0">
+                  <td colspan="6" class="text-center text-muted">No service lines recorded.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </mat-card>
+
+        <!-- ICD-10 Diagnoses Card -->
+        <mat-card class="section-card mat-elevation-z2">
+          <div class="card-header">
+            <div class="title-wrap">
+              <mat-icon color="accent">healing</mat-icon>
+              <h3>ICD-10 Diagnoses ({{ (claim.diagnoses || []).length }})</h3>
+            </div>
+            <button mat-stroked-button (click)="showAddDiag = !showAddDiag">
+              <mat-icon>{{ showAddDiag ? 'close' : 'add' }}</mat-icon>
+              <span>{{ showAddDiag ? 'Cancel' : 'Add Diagnosis' }}</span>
+            </button>
+          </div>
+          <mat-divider></mat-divider>
+
+          <!-- Add Diagnosis Drawer -->
+          <div class="inline-form-card" *ngIf="showAddDiag">
+            <h4>Add Clinical ICD-10 Diagnosis</h4>
+            <form [formGroup]="diagForm" (ngSubmit)="addDiagnosis()" class="inline-form">
+              <mat-form-field appearance="outline">
+                <mat-label>ICD-10 Code</mat-label>
+                <input matInput formControlName="diagnosisCode" placeholder="e.g. J06.9" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="col-span-2">
+                <mat-label>Clinical Description</mat-label>
+                <input matInput formControlName="description" placeholder="Description of condition..." />
+              </mat-form-field>
+              <div class="toggle-col">
+                <mat-slide-toggle formControlName="primary" color="primary">Primary Condition</mat-slide-toggle>
+              </div>
+
+              <div class="form-btn-row">
+                <button mat-flat-button color="accent" type="submit" [disabled]="diagForm.invalid || isAddingDiag">
+                  <mat-spinner diameter="18" *ngIf="isAddingDiag"></mat-spinner>
+                  <mat-icon *ngIf="!isAddingDiag">save</mat-icon>
+                  <span>Save Diagnosis</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="diagnoses-list">
+            <div class="diag-item" *ngFor="let d of claim.diagnoses">
+              <div class="diag-left">
+                <span class="code-badge">{{ d.diagnosisCode }}</span>
+                <span class="diag-desc">{{ d.description }}</span>
+              </div>
+              <span class="primary-chip" *ngIf="d.primary">PRIMARY</span>
+            </div>
+            <div *ngIf="!claim.diagnoses || claim.diagnoses.length === 0" class="empty-inline">
+              <span>No diagnostic codes attached.</span>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+
+      <!-- Right Column -->
+      <div class="col-stack">
+        <!-- Financial Adjudication Snapshot -->
+        <mat-card class="section-card mat-elevation-z2" *ngIf="claim.adjudication">
+          <div class="card-header">
+            <div class="title-wrap">
+              <mat-icon color="primary">gavel</mat-icon>
+              <h3>Adjudication Verdict</h3>
+            </div>
+            <span class="decision-badge decision-{{ claim.adjudication.decision | lowercase }}">
+              {{ claim.adjudication.decision }}
+            </span>
+          </div>
+          <mat-divider></mat-divider>
+
+          <div class="adj-breakdown">
+            <div class="adj-row">
+              <span class="lbl">Submitted Amount:</span>
+              <span class="val">{{ claim.adjudication.submittedAmount | currency:'USD' }}</span>
+            </div>
+            <div class="adj-row">
+              <span class="lbl">Allowed Amount:</span>
+              <span class="val">{{ claim.adjudication.allowedAmount | currency:'USD' }}</span>
+            </div>
+            <div class="adj-row">
+              <span class="lbl">Deductible Applied:</span>
+              <span class="val text-warn">- {{ claim.adjudication.deductibleAmount | currency:'USD' }}</span>
+            </div>
+            <div class="adj-row">
+              <span class="lbl">Coinsurance Copay ({{ claim.adjudication.copayPercentage }}%):</span>
+              <span class="val text-warn">- {{ claim.adjudication.copayAmount | currency:'USD' }}</span>
+            </div>
+            <mat-divider></mat-divider>
+            <div class="adj-row highlight-row">
+              <span class="lbl font-bold">Insurer Net Payout:</span>
+              <span class="val font-bold text-success">{{ claim.adjudication.payableAmount | currency:'USD' }}</span>
+            </div>
+            <div class="adj-row">
+              <span class="lbl">Patient Out-of-Pocket:</span>
+              <span class="val font-bold">{{ claim.adjudication.customerResponsibility | currency:'USD' }}</span>
+            </div>
+          </div>
+        </mat-card>
+
+        <!-- Document Attachments Card -->
+        <mat-card class="section-card mat-elevation-z2">
+          <div class="card-header">
+            <div class="title-wrap">
+              <mat-icon color="primary">folder_open</mat-icon>
+              <h3>Attached Documents ({{ (claim.documents || []).length }})</h3>
+            </div>
+            <button mat-stroked-button (click)="showAddDoc = !showAddDoc">
+              <mat-icon>{{ showAddDoc ? 'close' : 'add' }}</mat-icon>
+              <span>{{ showAddDoc ? 'Cancel' : 'Attach Document' }}</span>
+            </button>
+          </div>
+          <mat-divider></mat-divider>
+
+          <!-- Add Document Drawer -->
+          <div class="inline-form-card" *ngIf="showAddDoc">
+            <h4>Link Document Service Reference</h4>
+            <form [formGroup]="docForm" (ngSubmit)="addDocument()" class="inline-form">
+              <mat-form-field appearance="outline" class="col-span-2">
+                <mat-label>Document UUID (from Document Service)</mat-label>
+                <input matInput formControlName="documentId" placeholder="e.g. 5a6b7c8d-..." />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Document Type</mat-label>
+                <mat-select formControlName="documentType">
+                  <mat-option value="MEDICAL_BILL">MEDICAL_BILL</mat-option>
+                  <mat-option value="DISCHARGE_SUMMARY">DISCHARGE_SUMMARY</mat-option>
+                  <mat-option value="PRESCRIPTION">PRESCRIPTION</mat-option>
+                  <mat-option value="DIAGNOSTIC_REPORT">DIAGNOSTIC_REPORT</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Document Display Name</mat-label>
+                <input matInput formControlName="documentName" placeholder="e.g. Hospital Bill Page 1" />
+              </mat-form-field>
+
+              <div class="form-btn-row col-span-2">
+                <button mat-flat-button color="primary" type="submit" [disabled]="docForm.invalid || isAddingDoc">
+                  <mat-spinner diameter="18" *ngIf="isAddingDoc"></mat-spinner>
+                  <mat-icon *ngIf="!isAddingDoc">link</mat-icon>
+                  <span>Attach Document</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="docs-list">
+            <div class="doc-item" *ngFor="let doc of claim.documents">
+              <mat-icon class="doc-icon">description</mat-icon>
+              <div class="doc-meta">
+                <strong>{{ doc.documentName }}</strong>
+                <div class="doc-sub">
+                  <span class="type-pill">{{ doc.documentType }}</span>
+                  <span class="code-font">{{ doc.documentId | slice:0:8 }}...</span>
+                </div>
+              </div>
+            </div>
+            <div *ngIf="!claim.documents || claim.documents.length === 0" class="empty-inline">
+              <span>No clinical documents attached to this claim.</span>
+            </div>
+          </div>
+        </mat-card>
+
+        <!-- Settlement & EOB Card -->
+        <mat-card class="section-card mat-elevation-z2" *ngIf="claim.explanationOfBenefits || (claim.payments && claim.payments.length > 0)">
+          <div class="card-header">
+            <div class="title-wrap">
+              <mat-icon color="accent">receipt_long</mat-icon>
+              <h3>Explanation of Benefits (EOB)</h3>
+            </div>
+            <button mat-flat-button color="accent" (click)="goToEob()">
+              <mat-icon>open_in_new</mat-icon>
+              <span>Full EOB Statement</span>
+            </button>
+          </div>
+          <mat-divider></mat-divider>
+
+          <div class="eob-snapshot" *ngIf="claim.explanationOfBenefits">
+            <div class="eob-row">
+              <span class="lbl">EOB Reference #:</span>
+              <span class="val font-bold">{{ claim.explanationOfBenefits.eobNumber }}</span>
+            </div>
+            <div class="eob-row">
+              <span class="lbl">Insurance Paid:</span>
+              <span class="val text-success font-bold">{{ claim.explanationOfBenefits.insurancePayment | currency:'USD' }}</span>
+            </div>
+            <div class="eob-row">
+              <span class="lbl">Patient Responsibility:</span>
+              <span class="val font-bold">{{ claim.explanationOfBenefits.customerResponsibility | currency:'USD' }}</span>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+    </div>
+  </div>
+</div>

@@ -10,6 +10,8 @@
 
     <properties>
         <java.version>17</java.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
         <spring-boot.version>3.2.4</spring-boot.version>
         <spring-cloud.version>2023.0.1</spring-cloud.version>
     </properties>
@@ -28,6 +30,10 @@
         <module>infrastructure/service-discovery</module>
         <module>infrastructure/api-gateway</module>
         <module>services/identity-service</module>
+        <module>services/document-service</module>
+        <module>services/claims-service</module>
+        <module>services/notification-service</module>
+        <module>services/reporting-service</module>
     </modules>
 
     <dependencyManagement>

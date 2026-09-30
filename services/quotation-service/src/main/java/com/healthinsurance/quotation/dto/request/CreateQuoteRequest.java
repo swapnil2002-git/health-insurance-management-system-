@@ -15,6 +15,7 @@ public class CreateQuoteRequest {
     private UUID planId;
 
     @NotEmpty(message = "At least one member is required for a quote")
+    @jakarta.validation.constraints.Size(min = 1, max = 20, message = "Quotation can contain between 1 and 20 members")
     @Valid
     private List<QuoteMemberRequest> members;
 }

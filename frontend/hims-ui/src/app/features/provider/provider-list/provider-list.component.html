@@ -1,0 +1,195 @@
+<div class="list-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Providers / <span>Directory</span></div>
+      <h1>Healthcare Provider Directory</h1>
+      <p class="subtitle">Search, inspect credentials, and manage hospital & clinic network participation</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button routerLink="/providers/networks" class="action-btn">
+        <mat-icon>hub</mat-icon>
+        <span>All Networks</span>
+      </button>
+      <button mat-stroked-button routerLink="/providers/networks/mapping" class="action-btn">
+        <mat-icon>link</mat-icon>
+        <span>Network Mappings</span>
+      </button>
+      <button mat-flat-button color="primary" routerLink="/providers/create" class="action-btn">
+        <mat-icon>add</mat-icon>
+        <span>Enroll Provider</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Overview Strip -->
+  <div class="kpi-grid">
+    <mat-card class="kpi-card mat-elevation-z1">
+      <div class="kpi-icon-wrap icon-blue">
+        <mat-icon>local_hospital</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Total Enrolled</span>
+        <span class="kpi-value">{{ totalCount }}</span>
+        <span class="kpi-sub">Medical providers</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="kpi-card mat-elevation-z1">
+      <div class="kpi-icon-wrap icon-green">
+        <mat-icon>verified</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Active / In-Network</span>
+        <span class="kpi-value text-success">{{ activeCount }}</span>
+        <span class="kpi-sub">Credentialed facilities</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="kpi-card mat-elevation-z1">
+      <div class="kpi-icon-wrap icon-amber">
+        <mat-icon>warning</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Inactive / Suspended</span>
+        <span class="kpi-value text-warn">{{ inactiveCount }}</span>
+        <span class="kpi-sub">Pending renewal</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="kpi-card mat-elevation-z1">
+      <div class="kpi-icon-wrap icon-purple">
+        <mat-icon>domain</mat-icon>
+      </div>
+      <div class="kpi-body">
+        <span class="kpi-title">Hospital Centers</span>
+        <span class="kpi-value text-purple">{{ hospitalCount }}</span>
+        <span class="kpi-sub">Major health systems</span>
+      </div>
+    </mat-card>
+  </div>
+
+  <!-- Filter & Search Bar -->
+  <mat-card class="filter-card mat-elevation-z2">
+    <div class="filter-row">
+      <div class="search-box">
+        <mat-icon>search</mat-icon>
+        <input type="text" [(ngModel)]="searchText" (input)="applyFilter()" placeholder="Filter by provider name, type, phone, or UUID...">
+        <button mat-icon-button *ngIf="searchText" (click)="searchText = ''; applyFilter()">
+          <mat-icon>clear</mat-icon>
+        </button>
+      </div>
+
+      <div class="filter-pills">
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter === 'ALL'"
+          (click)="onFilterChange('ALL')">
+          All ({{ totalCount }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter === 'ACTIVE'"
+          (click)="onFilterChange('ACTIVE')">
+          Active
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter === 'INACTIVE'"
+          (click)="onFilterChange('INACTIVE')">
+          Inactive
+        </button>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading provider directory...</span>
+  </div>
+
+  <!-- Providers Table Card -->
+  <mat-card class="table-card mat-elevation-z2" *ngIf="!isLoading">
+    <div class="card-header">
+      <div class="title-wrap">
+        <mat-icon color="primary">view_list</mat-icon>
+        <h2>Provider Directory Listing ({{ filteredProviders.length }})</h2>
+      </div>
+      <span class="count-tag">Showing {{ filteredProviders.length }} of {{ providers.length }} total</span>
+    </div>
+    <mat-divider></mat-divider>
+
+    <!-- Empty State -->
+    <div *ngIf="filteredProviders.length === 0" class="empty-state">
+      <mat-icon>local_hospital</mat-icon>
+      <p>No healthcare providers match the criteria.</p>
+      <button mat-flat-button color="primary" routerLink="/providers/create">
+        <mat-icon>add</mat-icon>
+        <span>Enroll New Provider</span>
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container" *ngIf="filteredProviders.length > 0">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Provider Name</th>
+            <th>Classification</th>
+            <th>Status</th>
+            <th>Contact Phone</th>
+            <th>Contact Email</th>
+            <th>Locations</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of filteredProviders" (click)="viewProvider(p.providerId)">
+            <td class="name-cell">
+              <strong>{{ p.providerName }}</strong>
+              <span class="sub-id code-font">{{ p.providerId | slice:0:8 }}...</span>
+            </td>
+            <td>
+              <span class="type-pill">{{ p.providerType }}</span>
+            </td>
+            <td>
+              <span class="status-pill status-{{ p.status | lowercase }}">
+                {{ p.status }}
+              </span>
+            </td>
+            <td>{{ p.contactPhone || '—' }}</td>
+            <td>{{ p.contactEmail || '—' }}</td>
+            <td>
+              <span class="loc-count">
+                <mat-icon>place</mat-icon> {{ (p.addresses || []).length }} sites
+              </span>
+            </td>
+            <td class="actions-cell">
+              <button mat-icon-button (click)="viewProvider(p.providerId)" matTooltip="View Provider Dossier">
+                <mat-icon color="primary">visibility</mat-icon>
+              </button>
+              <button mat-icon-button (click)="manageAddress(p.providerId, $event)" matTooltip="Manage Addresses">
+                <mat-icon color="accent">location_on</mat-icon>
+              </button>
+              <button mat-icon-button (click)="manageMapping(p.providerId, $event)" matTooltip="Map to Network">
+                <mat-icon>hub</mat-icon>
+              </button>
+              <button mat-icon-button (click)="editProvider(p.providerId, $event)" matTooltip="Edit Provider">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button (click)="toggleStatus(p, $event)" [matTooltip]="p.status === 'ACTIVE' ? 'Deactivate' : 'Activate'">
+                <mat-icon [color]="p.status === 'ACTIVE' ? 'warn' : 'primary'">
+                  {{ p.status === 'ACTIVE' ? 'block' : 'check_circle' }}
+                </mat-icon>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </mat-card>
+</div>

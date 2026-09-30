@@ -32,7 +32,11 @@ public class PolicyIssuedConsumer {
         log.info("KAFKA LISTENER TRIGGERED: PolicyIssuedEvent received");
 
         try {
-            PolicyIssuedEvent event = objectMapper.readValue(message, PolicyIssuedEvent.class);
+            String cleanMessage = message;
+            if (cleanMessage != null && cleanMessage.startsWith("\"") && cleanMessage.endsWith("\"")) {
+                cleanMessage = objectMapper.readValue(cleanMessage, String.class);
+            }
+            PolicyIssuedEvent event = objectMapper.readValue(cleanMessage, PolicyIssuedEvent.class);
             log.info("Policy Number: {}, Policy ID: {}, Quote ID: {}",
                     event.getPolicyNumber(), event.getPolicyId(), event.getQuoteId());
 

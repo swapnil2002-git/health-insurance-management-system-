@@ -1,5 +1,6 @@
 package com.healthinsurance.premium.event;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,7 +10,9 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PolicyIssuedEvent {
+    private String eventId;
     private String eventType;
     private UUID policyId;
     private String policyNumber;

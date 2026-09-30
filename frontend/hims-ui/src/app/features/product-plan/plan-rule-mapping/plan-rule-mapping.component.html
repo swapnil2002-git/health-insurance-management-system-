@@ -1,0 +1,227 @@
+<div class="mapping-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Product & Plan / Plans / <span>Rule Mapping</span></div>
+      <h1>Associate Rules to Insurance Plan</h1>
+      <p class="subtitle">Link master underwriting coverages, deductibles, copayments, exclusions, and riders to insurance plans</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToPlans()" class="back-btn">
+        <mat-icon>arrow_back</mat-icon>
+        <span>Back to Plans</span>
+      </button>
+      <button mat-stroked-button color="primary" (click)="goToMasterRules()" class="rules-btn">
+        <mat-icon>auto_stories</mat-icon>
+        <span>Master Rules Catalog</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Plan Selection Bar -->
+  <mat-card class="plan-selector-card mat-elevation-z2">
+    <div class="selector-content">
+      <mat-icon class="plan-icon">assignment_ind</mat-icon>
+      <div class="selector-field">
+        <mat-form-field appearance="outline" class="plan-dropdown">
+          <mat-label>Select Insurance Plan</mat-label>
+          <mat-select [value]="selectedPlanId" (selectionChange)="onPlanChange($event.value)" [disabled]="isLoadingPlans">
+            <mat-option *ngFor="let p of plans" [value]="p.planId">
+              {{ p.name }} (Plan ID: {{ p.planId }})
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <!-- Plan Quick Summary -->
+      <div *ngIf="planDetail" class="plan-quick-meta">
+        <div class="meta-item">
+          <span class="meta-label">Parent Product:</span>
+          <span class="meta-val highlight">{{ planDetail.productName }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Plan ID:</span>
+          <code class="meta-code">{{ planDetail.planId }}</code>
+        </div>
+        <div class="meta-item desc-item" *ngIf="planDetail.description">
+          <span class="meta-label">Description:</span>
+          <span class="meta-val">{{ planDetail.description }}</span>
+        </div>
+      </div>
+    </div>
+  </mat-card>
+
+  <div class="mapping-grid">
+    <!-- Associate Rule Form Card -->
+    <mat-card class="form-card mat-elevation-z2">
+      <div class="card-title-row">
+        <mat-icon color="primary">add_link</mat-icon>
+        <h2>Map New Rule to Plan</h2>
+      </div>
+      <p class="form-instruction">
+        Choose a rule classification and select an active master rule to bind it to this plan.
+      </p>
+      <mat-divider></mat-divider>
+
+      <form [formGroup]="mapForm" (ngSubmit)="onMapRule()" class="mapping-form">
+        <!-- Classification -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Rule Classification *</mat-label>
+          <mat-select formControlName="category">
+            <mat-option *ngFor="let cat of ruleCategories" [value]="cat.key">
+              <span class="cat-option">
+                <mat-icon class="cat-icon">{{ cat.icon }}</mat-icon>
+                <span>{{ cat.label }}</span>
+              </span>
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="categoryControl?.hasError('required')">Classification is required</mat-error>
+        </mat-form-field>
+
+        <!-- Master Rule Selection -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Select Master Rule *</mat-label>
+          <mat-select formControlName="ruleId" [disabled]="isLoadingRules || availableRules.length === 0">
+            <mat-option *ngFor="let r of availableRules" [value]="r.id">
+              {{ r.name }} <span class="rule-opt-desc">({{ r.description || 'No description' }})</span>
+            </mat-option>
+          </mat-select>
+          <mat-hint *ngIf="isLoadingRules">Loading master rules...</mat-hint>
+          <mat-hint *ngIf="!isLoadingRules && availableRules.length === 0">No master rules available for this classification</mat-hint>
+          <mat-error *ngIf="ruleIdControl?.hasError('required')">Please select a master rule</mat-error>
+        </mat-form-field>
+
+        <!-- Submit Button -->
+        <div class="form-actions">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="mapForm.invalid || !selectedPlanId || isSubmitting"
+            class="submit-btn"
+          >
+            <mat-spinner *ngIf="isSubmitting" diameter="18" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isSubmitting">add_circle</mat-icon>
+            <span>{{ isSubmitting ? 'Associating...' : 'Map Rule to Plan' }}</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+
+    <!-- Currently Mapped Rules Overview -->
+    <mat-card class="breakdown-card mat-elevation-z2">
+      <div class="card-title-row">
+        <mat-icon color="primary">inventory_2</mat-icon>
+        <h2>Current Plan Rule Architecture</h2>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div *ngIf="isLoadingDetail" class="loading-state">
+        <mat-spinner diameter="32"></mat-spinner>
+        <span>Refreshing plan configuration...</span>
+      </div>
+
+      <div *ngIf="!isLoadingDetail && planDetail" class="categories-accordion">
+        <!-- Coverages -->
+        <div class="rule-section">
+          <div class="section-badge coverage-badge">
+            <mat-icon>health_and_safety</mat-icon>
+            <span>Coverages ({{ planDetail.coverages.length || 0 }})</span>
+          </div>
+          <div class="rule-items-wrap">
+            <div *ngFor="let item of planDetail.coverages" class="rule-card">
+              <div class="rule-card-header">
+                <span class="rule-name">{{ item.name }}</span>
+                <span class="rule-id-tag">ID: {{ item.id }}</span>
+              </div>
+              <p class="rule-desc" *ngIf="item.description">{{ item.description }}</p>
+            </div>
+            <div *ngIf="!planDetail.coverages || planDetail.coverages.length === 0" class="empty-rules">
+              No coverages mapped to this plan yet.
+            </div>
+          </div>
+        </div>
+
+        <!-- Deductibles -->
+        <div class="rule-section">
+          <div class="section-badge deductible-badge">
+            <mat-icon>payments</mat-icon>
+            <span>Deductibles ({{ planDetail.deductibles.length || 0 }})</span>
+          </div>
+          <div class="rule-items-wrap">
+            <div *ngFor="let item of planDetail.deductibles" class="rule-card">
+              <div class="rule-card-header">
+                <span class="rule-name">{{ item.name }}</span>
+                <span class="rule-id-tag">ID: {{ item.id }}</span>
+              </div>
+              <p class="rule-desc" *ngIf="item.description">{{ item.description }}</p>
+            </div>
+            <div *ngIf="!planDetail.deductibles || planDetail.deductibles.length === 0" class="empty-rules">
+              No deductibles mapped to this plan yet.
+            </div>
+          </div>
+        </div>
+
+        <!-- Copayments -->
+        <div class="rule-section">
+          <div class="section-badge copayment-badge">
+            <mat-icon>price_check</mat-icon>
+            <span>Copayments ({{ planDetail.copayments.length || 0 }})</span>
+          </div>
+          <div class="rule-items-wrap">
+            <div *ngFor="let item of planDetail.copayments" class="rule-card">
+              <div class="rule-card-header">
+                <span class="rule-name">{{ item.name }}</span>
+                <span class="rule-id-tag">ID: {{ item.id }}</span>
+              </div>
+              <p class="rule-desc" *ngIf="item.description">{{ item.description }}</p>
+            </div>
+            <div *ngIf="!planDetail.copayments || planDetail.copayments.length === 0" class="empty-rules">
+              No copayments mapped to this plan yet.
+            </div>
+          </div>
+        </div>
+
+        <!-- Exclusions -->
+        <div class="rule-section">
+          <div class="section-badge exclusion-badge">
+            <mat-icon>block</mat-icon>
+            <span>Exclusions ({{ planDetail.exclusions.length || 0 }})</span>
+          </div>
+          <div class="rule-items-wrap">
+            <div *ngFor="let item of planDetail.exclusions" class="rule-card">
+              <div class="rule-card-header">
+                <span class="rule-name">{{ item.name }}</span>
+                <span class="rule-id-tag">ID: {{ item.id }}</span>
+              </div>
+              <p class="rule-desc" *ngIf="item.description">{{ item.description }}</p>
+            </div>
+            <div *ngIf="!planDetail.exclusions || planDetail.exclusions.length === 0" class="empty-rules">
+              No exclusions mapped to this plan yet.
+            </div>
+          </div>
+        </div>
+
+        <!-- Riders -->
+        <div class="rule-section">
+          <div class="section-badge rider-badge">
+            <mat-icon>add_moderator</mat-icon>
+            <span>Riders ({{ planDetail.riders.length || 0 }})</span>
+          </div>
+          <div class="rule-items-wrap">
+            <div *ngFor="let item of planDetail.riders" class="rule-card">
+              <div class="rule-card-header">
+                <span class="rule-name">{{ item.name }}</span>
+                <span class="rule-id-tag">ID: {{ item.id }}</span>
+              </div>
+              <p class="rule-desc" *ngIf="item.description">{{ item.description }}</p>
+            </div>
+            <div *ngIf="!planDetail.riders || planDetail.riders.length === 0" class="empty-rules">
+              No riders mapped to this plan yet.
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-card>
+  </div>
+</div>

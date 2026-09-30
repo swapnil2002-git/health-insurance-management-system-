@@ -15,9 +15,13 @@ public interface PremiumService {
 
     PremiumScheduleResponse getPremiumByPolicy(UUID policyId);
 
+    PremiumScheduleResponse getScheduleById(UUID scheduleId);
+
     PremiumOutstandingResponse getOutstanding(UUID policyId);
 
     PremiumScheduleResponse recalculatePremium(UUID policyId, PremiumRecalculateRequest request);
 
     PremiumInstallmentResponse recordInstallmentPayment(UUID installmentId, InstallmentPaymentRequest request);
+
+    java.util.List<PremiumScheduleResponse> getAllSchedules();
 }

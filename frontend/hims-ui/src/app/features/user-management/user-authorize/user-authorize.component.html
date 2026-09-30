@@ -1,0 +1,210 @@
+<div class="user-management-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">User Management / <span>Authorize User</span></div>
+      <h1>Pending User Registrations</h1>
+      <p class="subtitle">Review and authorize staff user access requests across internal operational domains</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="loadPendingUsers()" [disabled]="isLoading" class="refresh-btn">
+        <mat-icon [class.spinning]="isLoading">refresh</mat-icon>
+        <span>Refresh Queue</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    <!-- Authorization Panel / User Selector -->
+    <mat-card class="action-card mat-elevation-z2">
+      <div class="card-title-row">
+        <mat-icon color="primary">verified_user</mat-icon>
+        <h2>Authorize Pending User</h2>
+      </div>
+      <mat-divider></mat-divider>
+
+      <!-- Dropdown: Pending User ID * -->
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Pending User ID *</mat-label>
+          <mat-select
+            [value]="selectedUserId"
+            (selectionChange)="onUserSelect($event.value)"
+            placeholder="Select a pending user to review"
+          >
+            <mat-option *ngIf="pendingUsers.length === 0" disabled>
+              No pending users currently in queue
+            </mat-option>
+            <mat-option *ngFor="let u of pendingUsers" [value]="u.userId">
+              {{ u.username }} ({{ u.role }}) — ID: {{ u.userId }}
+            </mat-option>
+          </mat-select>
+          <mat-icon matPrefix class="field-icon">search</mat-icon>
+          <mat-hint>Choose an applicant from the registration authorization queue</mat-hint>
+        </mat-form-field>
+      </div>
+
+      <!-- Selected User Detail Preview (Read-only fields) -->
+      <div *ngIf="selectedUser" class="user-detail-container">
+        <h3>Applicant Information</h3>
+
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="detail-label">User ID</span>
+            <span class="detail-value code-value">{{ selectedUser.userId }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Username</span>
+            <span class="detail-value font-bold">{{ selectedUser.username }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Email Address</span>
+            <span class="detail-value">{{ selectedUser.email }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Requested Role</span>
+            <span class="detail-value">
+              <span class="role-badge">{{ selectedUser.role }}</span>
+            </span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Account Status</span>
+            <span class="detail-value">
+              <span class="status-badge status-pending">{{ selectedUser.status }}</span>
+            </span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Created Date</span>
+            <span class="detail-value">{{ selectedUser.createdAt | date:'medium' }}</span>
+          </div>
+        </div>
+
+        <mat-divider class="inner-divider"></mat-divider>
+
+        <!-- Authorization Actions -->
+        <div class="authorization-actions">
+          <button
+            mat-flat-button
+            class="btn-approve"
+            (click)="approveUser(selectedUser)"
+            [disabled]="isActionInProgress"
+          >
+            <mat-spinner *ngIf="isActionInProgress" diameter="18"></mat-spinner>
+            <mat-icon *ngIf="!isActionInProgress">check_circle</mat-icon>
+            <span>Approve User</span>
+          </button>
+
+          <button
+            mat-flat-button
+            color="warn"
+            class="btn-reject"
+            (click)="rejectUser(selectedUser)"
+            [disabled]="isActionInProgress"
+          >
+            <mat-spinner *ngIf="isActionInProgress" diameter="18"></mat-spinner>
+            <mat-icon *ngIf="!isActionInProgress">cancel</mat-icon>
+            <span>Reject User</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Hint when no user is selected yet -->
+      <div *ngIf="!selectedUser && pendingUsers.length > 0" class="placeholder-prompt">
+        <mat-icon>touch_app</mat-icon>
+        <p>Select a pending user from the dropdown above or click on an applicant in the queue below to review and take action.</p>
+      </div>
+
+      <!-- Empty Queue Banner -->
+      <div *ngIf="!isLoading && pendingUsers.length === 0" class="empty-state">
+        <mat-icon class="empty-icon">task_alt</mat-icon>
+        <h3>Queue Is Empty</h3>
+        <p>All staff registrations have been reviewed. No pending accounts are awaiting approval.</p>
+      </div>
+    </mat-card>
+
+    <!-- Summary Statistics Sidebar -->
+    <div class="queue-summary">
+      <mat-card class="stat-card mat-elevation-z2">
+        <div class="stat-header">
+          <mat-icon color="primary">pending_actions</mat-icon>
+          <h3>Queue Overview</h3>
+        </div>
+        <mat-divider></mat-divider>
+        <div class="stat-body">
+          <div class="stat-metric">
+            <span class="stat-number">{{ pendingUsers.length }}</span>
+            <span class="stat-label">Pending Authorizations</span>
+          </div>
+          <div class="stat-info">
+            <mat-icon>info</mat-icon>
+            <p>Approving activates the account immediately. The applicant can log in with their assigned role.</p>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- Pending Users Full Table -->
+  <mat-card class="table-card mat-elevation-z2" *ngIf="pendingUsers.length > 0">
+    <div class="card-title-row">
+      <mat-icon color="primary">view_list</mat-icon>
+      <h2>Pending Registrations Queue ({{ pendingUsers.length }})</h2>
+    </div>
+    <mat-divider></mat-divider>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Requested Role</th>
+            <th>Status</th>
+            <th>Submission Date</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let u of pendingUsers"
+            [class.row-selected]="selectedUserId === u.userId"
+            (click)="selectUser(u)"
+          >
+            <td class="code-cell">{{ u.userId }}</td>
+            <td class="username-cell">{{ u.username }}</td>
+            <td>{{ u.email }}</td>
+            <td><span class="role-badge">{{ u.role }}</span></td>
+            <td><span class="status-badge status-pending">{{ u.status }}</span></td>
+            <td>{{ u.createdAt | date:'short' }}</td>
+            <td class="actions-col" (click)="$event.stopPropagation()">
+              <button
+                mat-icon-button
+                class="action-approve"
+                (click)="approveUser(u)"
+                [disabled]="isActionInProgress"
+                title="Approve User"
+              >
+                <mat-icon>check_circle</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                class="action-reject"
+                (click)="rejectUser(u)"
+                [disabled]="isActionInProgress"
+                title="Reject User"
+              >
+                <mat-icon>cancel</mat-icon>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </mat-card>
+</div>

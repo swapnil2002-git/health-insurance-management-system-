@@ -1,0 +1,163 @@
+<div class="claim-eligibility-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">
+        <a routerLink="/claims">Claims</a> / <span>Eligibility Verification</span>
+      </div>
+      <h1>External Coverage & Provider Eligibility Check</h1>
+      <p class="subtitle">
+        Orchestrate inter-service Feign calls to Policy Service and Provider Service verifying policy validity and provider status
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button routerLink="/claims">
+        <mat-icon>arrow_back</mat-icon>
+        <span>Back to Ledger</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search Card -->
+  <mat-card class="search-card mat-elevation-z2">
+    <div class="search-container">
+      <form [formGroup]="searchForm" (ngSubmit)="onSearch()" class="search-form">
+        <mat-icon class="search-icon">verified_user</mat-icon>
+
+        <!-- Claim No. / Claim ID Text Search -->
+        <mat-form-field appearance="outline" class="search-field">
+          <mat-label>Claim No. / Claim ID</mat-label>
+          <input
+            matInput
+            formControlName="claimQuery"
+            placeholder="Enter Claim No. (e.g. CLM-...) or Claim UUID"
+          />
+          <mat-icon matPrefix>search</mat-icon>
+          <mat-hint>Search by Claim Number or 36-char Claim UUID</mat-hint>
+          <mat-error *ngIf="searchForm.get('claimQuery')?.hasError('required')">
+            Claim No. or Claim ID is required.
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Registered Claims Dropdown Picker -->
+        <mat-form-field appearance="outline" class="dropdown-field" *ngIf="availableClaims.length > 0">
+          <mat-label>Select Registered Claim</mat-label>
+          <mat-select (selectionChange)="onClaimSelect($event.value)" [value]="claim?.claimId || ''">
+            <mat-option *ngFor="let c of availableClaims" [value]="c.claimId">
+              <span class="opt-bold">{{ c.claimNumber }}</span>
+              <span class="opt-dim"> &bull; {{ c.totalClaimAmount | currency:'USD' }} &bull; </span>
+              <span class="status-badge status-{{ c.status | lowercase }}">{{ c.status }}</span>
+            </mat-option>
+          </mat-select>
+          <mat-icon matPrefix>assignment</mat-icon>
+          <mat-hint>{{ availableClaims.length }} claim(s) available</mat-hint>
+        </mat-form-field>
+
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="fetch-btn"
+          [disabled]="searchForm.invalid || isLoadingClaim"
+        >
+          <mat-spinner diameter="18" *ngIf="isLoadingClaim"></mat-spinner>
+          <mat-icon *ngIf="!isLoadingClaim">search</mat-icon>
+          <span>Fetch Claim</span>
+        </button>
+      </form>
+    </div>
+  </mat-card>
+
+  <!-- Claim Context Strip -->
+  <mat-card class="context-card mat-elevation-z2" *ngIf="claim">
+    <div class="context-row">
+      <div class="context-info">
+        <div class="title-row">
+          <h2>{{ claim.claimNumber }}</h2>
+          <span class="status-pill status-{{ claim.status | lowercase }}">
+            {{ claim.status }}
+          </span>
+          <span class="type-pill">{{ claim.claimType }}</span>
+        </div>
+        <div class="meta-row">
+          <span>Policy: <strong class="code-font">{{ claim.policyId }}</strong></span>
+          <span>Member: <strong class="code-font">{{ claim.memberId }}</strong></span>
+          <span>Provider: <strong class="code-font">{{ claim.providerId }}</strong></span>
+        </div>
+      </div>
+
+      <div class="context-actions">
+        <button mat-stroked-button (click)="viewDossier()">
+          <mat-icon>visibility</mat-icon>
+          <span>Dossier</span>
+        </button>
+        <button
+          mat-flat-button
+          color="accent"
+          (click)="runEligibilityVerification()"
+          [disabled]="isVerifying"
+        >
+          <mat-spinner diameter="18" *ngIf="isVerifying"></mat-spinner>
+          <mat-icon *ngIf="!isVerifying">fact_check</mat-icon>
+          <span>Verify External Eligibility</span>
+        </button>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- Verification Checks Results -->
+  <mat-card class="results-card mat-elevation-z2" *ngIf="claim && eligibilityChecks.length > 0">
+    <div class="card-header">
+      <div class="title-wrap">
+        <mat-icon [color]="allPassed ? 'primary' : 'warn'">
+          {{ allPassed ? 'verified' : 'error_outline' }}
+        </mat-icon>
+        <h2>Eligibility Verification Summary ({{ eligibilityChecks.length }} Verification Rules)</h2>
+      </div>
+      <span class="banner-badge" [class.badge-pass]="allPassed" [class.badge-warn]="!allPassed">
+        {{ allPassed ? 'ELIGIBILITY CONFIRMED' : 'ELIGIBILITY ISSUES FOUND' }}
+      </span>
+    </div>
+    <mat-divider></mat-divider>
+
+    <div class="checks-list">
+      <div
+        class="check-item"
+        *ngFor="let check of eligibilityChecks"
+        [class.check-passed]="check.status === 'PASSED'"
+        [class.check-failed]="check.status === 'FAILED'"
+        [class.check-warning]="check.status === 'WARNING'"
+      >
+        <div class="check-icon">
+          <mat-icon>{{ check.status === 'PASSED' ? 'check_circle' : (check.status === 'FAILED' ? 'cancel' : 'warning') }}</mat-icon>
+        </div>
+        <div class="check-body">
+          <div class="check-title-row">
+            <span class="rule-title">{{ check.ruleName }}</span>
+            <span class="status-badge status-{{ check.status | lowercase }}">{{ check.status }}</span>
+          </div>
+          <p class="check-message">{{ check.message }}</p>
+          <span class="check-time" *ngIf="check.validatedAt">
+            Timestamp: {{ check.validatedAt | date:'medium' }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <mat-divider></mat-divider>
+
+    <!-- Pipeline Next Step Action -->
+    <div class="next-step-bar">
+      <div class="step-guide">
+        <mat-icon>arrow_forward</mat-icon>
+        <span>
+          Next Pipeline Step: Financial Adjudication calculates policy deductibles, coinsurance, and approves/rejects claim payout.
+        </span>
+      </div>
+      <button mat-flat-button color="primary" (click)="proceedToAdjudicate()">
+        <mat-icon>gavel</mat-icon>
+        <span>Proceed to Financial Adjudication</span>
+      </button>
+    </div>
+  </mat-card>
+</div>

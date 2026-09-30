@@ -1,0 +1,185 @@
+<div class="document-upload-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">
+        <a routerLink="/documents">Documents</a> / <span>Upload Document</span>
+      </div>
+      <h1>Secure Clinical & Policy Document Intake</h1>
+      <p class="subtitle">
+        Upload PDF and image records (bills, discharge summaries, ID credentials, EOBs) to secure filesystem storage
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button routerLink="/documents">
+        <mat-icon>arrow_back</mat-icon>
+        <span>Back to Documents</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="upload-container">
+    <!-- Upload Card -->
+    <mat-card class="upload-card mat-elevation-z2" *ngIf="!uploadedDocument">
+      <div class="card-header">
+        <div class="title-wrap">
+          <mat-icon color="primary">cloud_upload</mat-icon>
+          <h2>File Upload & Classification</h2>
+        </div>
+        <span class="badge">MAX 10 MB</span>
+      </div>
+      <mat-divider></mat-divider>
+
+      <form [formGroup]="uploadForm" (ngSubmit)="onSubmit()" class="form-body">
+        <!-- Classification Options -->
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="col-span-2">
+            <mat-label>Document Classification Type</mat-label>
+            <mat-select formControlName="documentType">
+              <mat-option *ngFor="let opt of documentTypeOptions" [value]="opt.value">
+                <mat-icon>{{ opt.icon }}</mat-icon>
+                <span>{{ opt.label }}</span>
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>category</mat-icon>
+            <mat-error *ngIf="uploadForm.get('documentType')?.hasError('required')">
+              Document type is required.
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Business Reference UUID (Optional)</mat-label>
+            <input matInput formControlName="referenceId" placeholder="e.g. claimId, policyId, memberId" />
+            <mat-icon matPrefix>link</mat-icon>
+            <mat-hint>Links file to Claim, Policy, or Member</mat-hint>
+            <mat-error *ngIf="uploadForm.get('referenceId')?.hasError('pattern')">
+              Must be a valid 36-char UUID.
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div
+          class="drop-zone"
+          [class.drag-over]="isDragging"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)"
+          (drop)="onDrop($event)"
+          (click)="fileInput.click()"
+        >
+          <input
+            #fileInput
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg"
+            style="display: none;"
+            (change)="onFileSelected($event)"
+          />
+
+          <div class="drop-content" *ngIf="!selectedFile">
+            <mat-icon class="upload-icon">upload_file</mat-icon>
+            <h3>Drag & Drop your document here</h3>
+            <p>or <span class="browse-link">browse from your computer</span></p>
+            <span class="file-hint">Supported formats: PDF, PNG, JPG, JPEG (Up to 10 MB)</span>
+          </div>
+
+          <!-- Selected File Card -->
+          <div class="selected-file-wrap" *ngIf="selectedFile" (click)="$event.stopPropagation()">
+            <div class="file-icon-box">
+              <mat-icon>{{ selectedFile.type === 'application/pdf' ? 'picture_as_pdf' : 'image' }}</mat-icon>
+            </div>
+            <div class="file-info">
+              <strong class="file-name">{{ selectedFile.name }}</strong>
+              <div class="file-meta">
+                <span>{{ formatBytes(selectedFile.size) }}</span>
+                <span>•</span>
+                <span>{{ selectedFile.type }}</span>
+              </div>
+            </div>
+            <button mat-icon-button color="warn" type="button" (click)="removeFile()" matTooltip="Remove File">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button mat-button type="button" routerLink="/documents" [disabled]="isUploading">
+            Cancel
+          </button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="!selectedFile || uploadForm.invalid || isUploading"
+          >
+            <mat-spinner diameter="18" *ngIf="isUploading"></mat-spinner>
+            <mat-icon *ngIf="!isUploading">cloud_upload</mat-icon>
+            <span>Upload Document</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+
+    <!-- Upload Success Confirmation Card -->
+    <mat-card class="success-card mat-elevation-z2" *ngIf="uploadedDocument">
+      <div class="card-header">
+        <div class="title-wrap">
+          <mat-icon color="accent">check_circle</mat-icon>
+          <h2>Document Uploaded & Stored Successfully</h2>
+        </div>
+        <span class="badge badge-success">ACTIVE</span>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="success-body">
+        <div class="success-icon-wrap">
+          <mat-icon>task_alt</mat-icon>
+          <h3>Secure Storage Confirmed</h3>
+          <p>The document file has been safely written to physical filesystem storage and indexed in document-db.</p>
+        </div>
+
+        <div class="doc-details-grid">
+          <div class="detail-row">
+            <span class="lbl">Document UUID:</span>
+            <span class="val code-font">{{ uploadedDocument.documentId }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="lbl">Original File Name:</span>
+            <span class="val font-bold">{{ uploadedDocument.fileName }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="lbl">Document Type:</span>
+            <span class="val type-pill">{{ uploadedDocument.documentType }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="lbl">File Size:</span>
+            <span class="val">{{ formatBytes(uploadedDocument.fileSize) }}</span>
+          </div>
+          <div class="detail-row" *ngIf="uploadedDocument.referenceId">
+            <span class="lbl">Linked Business Ref:</span>
+            <span class="val code-font">{{ uploadedDocument.referenceId }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="lbl">Storage Reference:</span>
+            <span class="val code-font">{{ uploadedDocument.storageReference }}</span>
+          </div>
+        </div>
+
+        <div class="success-actions">
+          <button mat-stroked-button (click)="resetUpload()">
+            <mat-icon>add</mat-icon>
+            <span>Upload Another File</span>
+          </button>
+          <button mat-stroked-button color="primary" (click)="viewMetadata()">
+            <mat-icon>visibility</mat-icon>
+            <span>View Full Metadata</span>
+          </button>
+          <button mat-flat-button color="accent" (click)="downloadUploaded()">
+            <mat-icon>download</mat-icon>
+            <span>Download Uploaded File</span>
+          </button>
+        </div>
+      </div>
+    </mat-card>
+  </div>
+</div>

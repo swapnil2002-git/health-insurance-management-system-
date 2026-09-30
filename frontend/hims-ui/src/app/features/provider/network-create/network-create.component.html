@@ -1,0 +1,113 @@
+<div class="network-create-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">
+        <a routerLink="/providers">Providers</a> /
+        <a routerLink="/providers/networks">Networks</a> /
+        <span>{{ isEditMode ? 'Edit Network' : 'New Network' }}</span>
+      </div>
+      <h1>{{ isEditMode ? 'Update Network Profile' : 'Establish Provider Network' }}</h1>
+      <p class="subtitle">
+        Define medical network tiers, PPO/HMO health groupings, and participation parameters
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button routerLink="/providers/networks">
+        <mat-icon>arrow_back</mat-icon>
+        <span>Back to Networks</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading network specifications...</span>
+  </div>
+
+  <!-- Form Container -->
+  <div class="form-container" *ngIf="!isLoading">
+    <mat-card class="form-card mat-elevation-z2">
+      <div class="card-header">
+        <div class="title-wrap">
+          <mat-icon color="primary">hub</mat-icon>
+          <h2>{{ isEditMode ? 'Modify Network Configuration' : 'Network Registration Details' }}</h2>
+        </div>
+        <span class="badge" [class.badge-edit]="isEditMode">
+          {{ isEditMode ? 'EDIT MODE' : 'NEW NETWORK' }}
+        </span>
+      </div>
+      <mat-divider></mat-divider>
+
+      <form [formGroup]="networkForm" (ngSubmit)="onSubmit()" class="form-body">
+        <!-- Form Fields Grid -->
+        <div class="form-grid">
+          <!-- Network Name -->
+          <mat-form-field appearance="outline" class="col-span-2">
+            <mat-label>Network Name</mat-label>
+            <input matInput formControlName="networkName" placeholder="e.g. Metro Preferred PPO, Regional Health HMO" />
+            <mat-icon matPrefix>business</mat-icon>
+            <mat-error *ngIf="networkForm.get('networkName')?.hasError('required')">
+              Network name is required.
+            </mat-error>
+            <mat-error *ngIf="networkForm.get('networkName')?.hasError('minlength')">
+              Must be at least 3 characters.
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Status -->
+          <mat-form-field appearance="outline">
+            <mat-label>Network Status</mat-label>
+            <mat-select formControlName="status">
+              <mat-option *ngFor="let s of statusOptions" [value]="s">
+                {{ s }}
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>toggle_on</mat-icon>
+            <mat-error *ngIf="networkForm.get('status')?.hasError('required')">
+              Status is required.
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Description -->
+          <mat-form-field appearance="outline" class="col-span-3">
+            <mat-label>Description & Scope</mat-label>
+            <textarea
+              matInput
+              rows="3"
+              formControlName="description"
+              placeholder="Outline participating geographic regions, tier levels, or specialty care focus..."
+            ></textarea>
+            <mat-icon matPrefix>description</mat-icon>
+            <mat-hint align="end">{{ networkForm.get('description')?.value?.length || 0 }}/255</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <!-- Informational Callout -->
+        <div class="info-callout">
+          <mat-icon>info</mat-icon>
+          <div>
+            <strong>Network Enrolment Notice:</strong>
+            Once established, you can assign healthcare providers (hospitals, clinics, independent practitioners)
+            to this network to enable In-Network adjudication during claim processing.
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button mat-button type="button" (click)="cancel()" [disabled]="isSubmitting">
+            Cancel
+          </button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="networkForm.invalid || isSubmitting">
+            <mat-spinner diameter="18" *ngIf="isSubmitting"></mat-spinner>
+            <mat-icon *ngIf="!isSubmitting">save</mat-icon>
+            <span>{{ isEditMode ? 'Update Network' : 'Register Network' }}</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+  </div>
+</div>

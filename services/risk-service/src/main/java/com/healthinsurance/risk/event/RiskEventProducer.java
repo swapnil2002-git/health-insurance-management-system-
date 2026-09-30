@@ -14,6 +14,13 @@ public class RiskEventProducer {
 
     public void publishRiskCompletedEvent(RiskAssessmentCompletedEvent event) {
         log.info("Publishing RiskAssessmentCompletedEvent to Kafka topic '{}' for Assessment ID: {}", TOPIC, event.getAssessmentId());
-        kafkaTemplate.send(TOPIC, event.getAssessmentId().toString(), event);
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                kafkaTemplate.send(TOPIC, event.getAssessmentId().toString(), event);
+                log.info("Successfully published RiskAssessmentCompletedEvent to Kafka topic '{}' for Assessment ID: {}", TOPIC, event.getAssessmentId());
+            } catch (Exception ex) {
+                log.error("Failed to publish RiskAssessmentCompletedEvent to Kafka topic '{}' for Assessment ID: {}: {}", TOPIC, event.getAssessmentId(), ex.getMessage());
+            }
+        });
     }
 }

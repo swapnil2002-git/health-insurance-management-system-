@@ -1,0 +1,46 @@
+# Compiled class files & Maven targets
+target/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Node & Frontend dependencies
+node_modules/
+**/node_modules/
+.npm/
+.angular/
+dist/
+**/dist/
+
+# IDE & Editor files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Log files
+*.log
+logs/
+**/logs/
+
+# Backup & System generated files
+.git.bak/
+.system_generated/
+scratch/
+uploads/

@@ -1,0 +1,196 @@
+<div class="create-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Providers / <span>{{ isEditMode ? 'Edit Provider' : 'Create Provider' }}</span></div>
+      <h1>{{ isEditMode ? 'Update Healthcare Provider' : 'Healthcare Provider Enrollment' }}</h1>
+      <p class="subtitle">Enroll medical providers, hospitals, clinics, or diagnostic centers into the health plan network directory</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button routerLink="/providers" class="action-btn">
+        <mat-icon>local_hospital</mat-icon>
+        <span>All Providers</span>
+      </button>
+      <button mat-stroked-button routerLink="/providers/networks" class="action-btn">
+        <mat-icon>hub</mat-icon>
+        <span>All Networks</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State for Edit -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading provider record...</span>
+  </div>
+
+  <!-- Saved / Enrolled Confirmation Card -->
+  <mat-card *ngIf="savedProvider" class="success-card mat-elevation-z3">
+    <div class="success-header">
+      <div class="icon-bubble">
+        <mat-icon>check_circle</mat-icon>
+      </div>
+      <div class="header-meta">
+        <h2>{{ isEditMode ? 'Provider Updated' : 'Provider Successfully Enrolled' }}</h2>
+        <span class="status-badge status-{{ savedProvider.status | lowercase }}">{{ savedProvider.status }}</span>
+      </div>
+    </div>
+    <mat-divider></mat-divider>
+
+    <div class="details-grid">
+      <div class="detail-cell">
+        <span class="lbl">Provider ID</span>
+        <span class="val code-font">{{ savedProvider.providerId }}</span>
+      </div>
+      <div class="detail-cell">
+        <span class="lbl">Facility / Doctor Name</span>
+        <span class="val font-bold">{{ savedProvider.providerName }}</span>
+      </div>
+      <div class="detail-cell">
+        <span class="lbl">Provider Type</span>
+        <span class="val">{{ savedProvider.providerType }}</span>
+      </div>
+      <div class="detail-cell">
+        <span class="lbl">Contact Phone</span>
+        <span class="val">{{ savedProvider.contactPhone || '—' }}</span>
+      </div>
+      <div class="detail-cell">
+        <span class="lbl">Contact Email</span>
+        <span class="val">{{ savedProvider.contactEmail || '—' }}</span>
+      </div>
+    </div>
+
+    <div class="success-actions">
+      <button mat-stroked-button (click)="resetForm()" *ngIf="!isEditMode">
+        <mat-icon>add</mat-icon>
+        <span>Enroll Another</span>
+      </button>
+      <button mat-stroked-button color="accent" (click)="goToAddress()">
+        <mat-icon>home</mat-icon>
+        <span>Manage Addresses</span>
+      </button>
+      <button mat-stroked-button color="primary" (click)="goToMapping()">
+        <mat-icon>hub</mat-icon>
+        <span>Map to Network</span>
+      </button>
+      <button mat-flat-button color="primary" (click)="goToView()">
+        <mat-icon>visibility</mat-icon>
+        <span>View Provider Dossier</span>
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- Provider Enrollment Form -->
+  <mat-card *ngIf="!savedProvider && !isLoading" class="form-card mat-elevation-z2">
+    <form [formGroup]="providerForm" (ngSubmit)="onSubmit()" class="provider-form">
+      <!-- Section 1: Facility Details -->
+      <div class="form-section-title">
+        <mat-icon color="primary">local_hospital</mat-icon>
+        <h3>General Information</h3>
+      </div>
+
+      <div class="form-row-2">
+        <mat-form-field appearance="outline">
+          <mat-label>Provider / Facility Name</mat-label>
+          <input matInput formControlName="providerName" placeholder="e.g. Saint Jude Memorial Hospital">
+          <mat-error *ngIf="providerForm.get('providerName')?.hasError('required')">Name is required</mat-error>
+          <mat-error *ngIf="providerForm.get('providerName')?.hasError('minlength')">Must be at least 3 characters</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Enrollment Status</mat-label>
+          <mat-select formControlName="status">
+            <mat-option value="ACTIVE">ACTIVE — Contracted & Credentialed</mat-option>
+            <mat-option value="INACTIVE">INACTIVE — Suspended or Not Accepting</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <!-- Provider Type Selector -->
+      <div class="type-selector-area">
+        <span class="type-title">Select Provider Classification:</span>
+        <div class="type-grid">
+          <div
+            *ngFor="let t of providerTypes"
+            class="type-card"
+            [class.active]="providerForm.value.providerType === t.value"
+            (click)="selectType(t.value)">
+            <div class="type-icon-wrap">
+              <mat-icon>{{ t.icon }}</mat-icon>
+            </div>
+            <div class="type-info">
+              <span class="type-name">{{ t.label }}</span>
+              <span class="type-desc">{{ t.description }}</span>
+            </div>
+            <mat-icon class="check-mark" *ngIf="providerForm.value.providerType === t.value">check_circle</mat-icon>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Contact Information -->
+      <div class="form-section-title">
+        <mat-icon color="primary">contact_phone</mat-icon>
+        <h3>Direct Contact Credentials</h3>
+      </div>
+
+      <div class="form-row-2">
+        <mat-form-field appearance="outline">
+          <mat-label>Contact Email</mat-label>
+          <input matInput formControlName="contactEmail" placeholder="e.g. claims@saintjude.org">
+          <mat-icon matSuffix>email</mat-icon>
+          <mat-error *ngIf="providerForm.get('contactEmail')?.hasError('email')">Invalid email address format</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Contact Phone</mat-label>
+          <input matInput formControlName="contactPhone" placeholder="e.g. +1-555-019-2831">
+          <mat-icon matSuffix>phone</mat-icon>
+          <mat-error *ngIf="providerForm.get('contactPhone')?.hasError('pattern')">Invalid phone number format</mat-error>
+        </mat-form-field>
+      </div>
+
+      <!-- Section 3: Primary Physical Address (Optional for initial create) -->
+      <div class="form-section-title" *ngIf="!isEditMode">
+        <mat-icon color="primary">place</mat-icon>
+        <h3>Primary Facility Location (Optional)</h3>
+      </div>
+
+      <div *ngIf="!isEditMode" class="address-fields">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Street Address</mat-label>
+          <input matInput formControlName="streetAddress" placeholder="e.g. 742 Evergreen Terrace, Suite 100">
+        </mat-form-field>
+
+        <div class="form-row-3">
+          <mat-form-field appearance="outline">
+            <mat-label>City</mat-label>
+            <input matInput formControlName="city" placeholder="e.g. Springfield">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>State / Province</mat-label>
+            <input matInput formControlName="state" placeholder="e.g. IL">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Postal / ZIP Code</mat-label>
+            <input matInput formControlName="postalCode" placeholder="e.g. 62704">
+          </mat-form-field>
+        </div>
+      </div>
+
+      <mat-divider class="form-divider"></mat-divider>
+
+      <!-- Form Actions -->
+      <div class="form-actions">
+        <button mat-stroked-button type="button" routerLink="/providers" [disabled]="isSubmitting">
+          Cancel
+        </button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="providerForm.invalid || isSubmitting" class="submit-btn">
+          <mat-icon [class.spinning]="isSubmitting">save</mat-icon>
+          <span>{{ isSubmitting ? 'Saving Record...' : (isEditMode ? 'Update Provider Record' : 'Enroll Provider') }}</span>
+        </button>
+      </div>
+    </form>
+  </mat-card>
+</div>

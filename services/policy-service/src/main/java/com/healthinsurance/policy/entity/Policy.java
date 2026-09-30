@@ -42,6 +42,9 @@ public class Policy {
     private Instant createdAt = Instant.now();
     private Instant updatedAt = Instant.now();
 
+    @Version
+    private Long version;
+
     // Internal Policy Domain Relationships
     @OneToMany(mappedBy = "policy", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
@@ -67,4 +70,9 @@ public class Policy {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private PolicyCancellation cancellation;
+
+    @OneToMany(mappedBy = "policy", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<PolicyRenewal> renewals;
 }

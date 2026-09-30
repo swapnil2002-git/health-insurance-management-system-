@@ -1,0 +1,403 @@
+<div class="installment-page">
+  <!-- Centered Popup Feedback Modal -->
+  <div *ngIf="modalData" class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-container mat-elevation-z8" (click)="$event.stopPropagation()">
+      <!-- Close cross mark in top-right corner -->
+      <button mat-icon-button class="modal-close-btn" (click)="closeModal()" title="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+
+      <div class="modal-header">
+        <div class="modal-icon-circle" [ngClass]="modalData.type">
+          <mat-icon>{{ modalData.type === 'success' ? 'verified' : 'error' }}</mat-icon>
+        </div>
+        <h2 class="modal-title">{{ modalData.title }}</h2>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-message">{{ modalData.message }}</p>
+
+        <!-- Payment Details Summary Cards (for success) -->
+        <div *ngIf="modalData.type === 'success'" class="modal-id-list">
+          <!-- Installment & Amount Summary -->
+          <div class="modal-metrics-strip">
+            <div class="metric-box">
+              <span class="m-lbl">Installment</span>
+              <span class="m-val">#{{ modalData.installmentNumber }}</span>
+            </div>
+            <div class="metric-box">
+              <span class="m-lbl">Amount Paid</span>
+              <span class="m-val text-success">{{ modalData.amountPaid | currency:'USD' }}</span>
+            </div>
+            <div class="metric-box">
+              <span class="m-lbl">Remaining Balance</span>
+              <span class="m-val text-warn">{{ modalData.outstandingAmount | currency:'USD' }}</span>
+            </div>
+            <div class="metric-box">
+              <span class="m-lbl">Status</span>
+              <span class="status-pill status-{{ modalData.status | lowercase }}">{{ modalData.status }}</span>
+            </div>
+          </div>
+
+          <!-- Transaction Reference Card -->
+          <div *ngIf="modalData.paymentReference" class="modal-id-card">
+            <span class="id-label">Transaction Reference</span>
+            <div class="id-value-row">
+              <span class="id-code policy-num-code">{{ modalData.paymentReference }}</span>
+              <button
+                mat-icon-button
+                type="button"
+                class="copy-btn"
+                (click)="copyToClipboard(modalData.paymentReference, 'txn')"
+                [title]="modalData.copyTxnSuccess ? 'Copied!' : 'Copy Transaction ID'"
+              >
+                <mat-icon>{{ modalData.copyTxnSuccess ? 'done' : 'content_copy' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <!-- Policy Details Card -->
+          <div *ngIf="modalData.policyNumber || modalData.policyId" class="modal-id-card">
+            <span class="id-label">Associated Policy</span>
+            <div class="id-value-row">
+              <span class="id-code">{{ modalData.policyNumber || modalData.policyId }}</span>
+              <button
+                mat-icon-button
+                type="button"
+                class="copy-btn"
+                (click)="copyToClipboard(modalData.policyNumber || modalData.policyId, 'policy')"
+                [title]="modalData.copyPolicySuccess ? 'Copied!' : 'Copy Policy'"
+              >
+                <mat-icon>{{ modalData.copyPolicySuccess ? 'done' : 'content_copy' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <!-- Schedule ID Card -->
+          <div *ngIf="modalData.scheduleId" class="modal-id-card">
+            <span class="id-label">Premium Schedule ID</span>
+            <div class="id-value-row">
+              <span class="id-code">{{ modalData.scheduleId }}</span>
+              <button
+                mat-icon-button
+                type="button"
+                class="copy-btn"
+                (click)="copyToClipboard(modalData.scheduleId, 'schedule')"
+                [title]="modalData.copyScheduleSuccess ? 'Copied!' : 'Copy Schedule ID'"
+              >
+                <mat-icon>{{ modalData.copyScheduleSuccess ? 'done' : 'content_copy' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button mat-flat-button color="primary" class="modal-ok-btn" (click)="closeModal()">
+          <mat-icon>check</mat-icon>
+          <span>OK</span>
+        </button>
+
+        <button
+          *ngIf="modalData.type === 'success'"
+          mat-stroked-button
+          color="accent"
+          (click)="closeModal(); goToView()"
+          class="modal-secondary-btn"
+        >
+          <mat-icon>receipt_long</mat-icon>
+          <span>Billing Dossier</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Premium Billing / <span>Installments</span></div>
+      <h1>Installment Management & Payments</h1>
+      <p class="subtitle">Track installment maturity, view balances, and record collections or payments against active policy schedules</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToSchedules()" class="action-btn">
+        <mat-icon>calendar_view_month</mat-icon>
+        <span>Schedules</span>
+      </button>
+      <button mat-stroked-button color="accent" (click)="goToRecalculate()" class="action-btn">
+        <mat-icon>tune</mat-icon>
+        <span>Recalculate</span>
+      </button>
+      <button mat-stroked-button color="primary" (click)="goToView()" class="action-btn">
+        <mat-icon>receipt_long</mat-icon>
+        <span>Billing Dossier</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search / Lookup Bar Card -->
+  <mat-card class="search-card mat-elevation-z2">
+    <div class="search-card-header">
+      <mat-icon class="search-header-icon">manage_search</mat-icon>
+      <div class="search-header-text">
+        <h3>Search Policy & Associated Installment Schedules</h3>
+        <p>Enter Policy Number or Policy ID to retrieve and select the associated schedule and view installment ledgers.</p>
+      </div>
+    </div>
+    <mat-divider></mat-divider>
+
+    <div class="search-form-row">
+      <!-- 1. Policy No / Policy ID Input -->
+      <mat-form-field appearance="outline" class="policy-input-field">
+        <mat-label>Policy No. / Policy ID *</mat-label>
+        <input
+          matInput
+          [(ngModel)]="policyInput"
+          name="policyInput"
+          placeholder="e.g. POL-2026-0DC04122 or 0ebed793-6dfd-480e-8c08-a260abc29281"
+          (keyup.enter)="searchPolicySchedules()"
+        />
+        <mat-icon matPrefix class="field-icon">policy</mat-icon>
+        <button
+          *ngIf="policyInput"
+          matSuffix
+          mat-icon-button
+          aria-label="Clear"
+          (click)="policyInput = ''; availableSchedules = []; selectedScheduleId = ''; schedule = null; outstanding = null; resolvedPolicy = null"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </mat-form-field>
+
+      <!-- Search Button -->
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="!policyInput || isLoading"
+        (click)="searchPolicySchedules()"
+        class="search-btn"
+      >
+        <mat-icon [class.spinning]="isLoading">search</mat-icon>
+        <span>Find Installments</span>
+      </button>
+
+      <!-- 2. Associated Schedule ID Dropdown -->
+      <mat-form-field appearance="outline" class="schedule-dropdown-field">
+        <mat-label>Associated Scheduled ID</mat-label>
+        <mat-select
+          [(ngModel)]="selectedScheduleId"
+          name="selectedScheduleId"
+          [disabled]="availableSchedules.length === 0"
+          (selectionChange)="onSelectSchedule($event.value)"
+          placeholder="Select Schedule ID"
+        >
+          <mat-option *ngIf="availableSchedules.length === 0" disabled>
+            Enter Policy No./ID to load schedules
+          </mat-option>
+          <mat-option *ngFor="let s of availableSchedules" [value]="s.scheduleId">
+            <strong>#{{ s.scheduleId }}</strong> — {{ s.paymentFrequency }} ({{ s.totalPremium | currency:'USD' }}) [{{ s.premiumStatus }}]
+          </mat-option>
+        </mat-select>
+        <mat-icon matPrefix class="field-icon">calendar_month</mat-icon>
+        <mat-hint *ngIf="availableSchedules.length > 0">
+          {{ availableSchedules.length }} schedule(s) found for this policy
+        </mat-hint>
+        <mat-hint *ngIf="availableSchedules.length === 0">
+          Search policy above to populate scheduled IDs
+        </mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- Resolved Policy Info Pill -->
+    <div *ngIf="resolvedPolicy" class="resolved-policy-pill">
+      <mat-icon>verified</mat-icon>
+      <span>
+        Policy: <strong>{{ resolvedPolicy.policyNumber }}</strong> | Status: <strong>{{ resolvedPolicy.status }}</strong> | Customer: <strong>{{ resolvedPolicy.customerId }}</strong>
+      </span>
+    </div>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading installment ledger...</span>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && !schedule" class="empty-state">
+    <mat-icon>payments</mat-icon>
+    <p>Please enter a Policy No. / Policy ID above and select the Schedule ID to view the installment ledger and record payments.</p>
+  </div>
+
+  <!-- Schedule & Installments Section -->
+  <div *ngIf="!isLoading && schedule" class="content-container">
+    <!-- KPI Overview Cards -->
+    <div class="kpi-grid">
+      <mat-card class="kpi-card mat-elevation-z1">
+        <div class="kpi-icon-wrap icon-blue">
+          <mat-icon>account_balance_wallet</mat-icon>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-title">Total Scheduled</span>
+          <span class="kpi-value">{{ schedule.totalPremium | currency:'USD' }}</span>
+          <span class="kpi-sub">{{ schedule.numberOfInstallments }} installments ({{ schedule.paymentFrequency }})</span>
+        </div>
+      </mat-card>
+
+      <mat-card class="kpi-card mat-elevation-z1">
+        <div class="kpi-icon-wrap icon-green">
+          <mat-icon>check_circle</mat-icon>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-title">Total Collected</span>
+          <span class="kpi-value text-success">{{ schedule.paidAmount | currency:'USD' }}</span>
+          <span class="kpi-sub">
+            {{ (schedule.totalPremium > 0 ? (schedule.paidAmount / schedule.totalPremium * 100) : 0) | number:'1.0-1' }}% satisfied
+          </span>
+        </div>
+      </mat-card>
+
+      <mat-card class="kpi-card mat-elevation-z1">
+        <div class="kpi-icon-wrap icon-amber">
+          <mat-icon>pending_actions</mat-icon>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-title">Outstanding Balance</span>
+          <span class="kpi-value text-warn">{{ schedule.outstandingAmount | currency:'USD' }}</span>
+          <span class="kpi-sub">Remaining balance due</span>
+        </div>
+      </mat-card>
+
+      <mat-card class="kpi-card mat-elevation-z1">
+        <div class="kpi-icon-wrap icon-purple">
+          <mat-icon>shield</mat-icon>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-title">Schedule Status</span>
+          <span class="status-badge status-{{ schedule.premiumStatus | lowercase }}">
+            {{ schedule.premiumStatus }}
+          </span>
+          <span class="kpi-sub">Schedule: #{{ schedule.scheduleId | slice:0:8 }}...</span>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- Payment Action Card (Section) -->
+    <mat-card *ngIf="selectedInstallment" id="payment-card-section" class="payment-action-card mat-elevation-z3">
+      <div class="payment-header">
+        <div class="title-wrap">
+          <mat-icon color="primary">credit_card</mat-icon>
+          <h3>Record Payment: Installment #{{ selectedInstallment.installmentNumber }}</h3>
+        </div>
+        <button mat-icon-button (click)="cancelPayment()" title="Cancel">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="payment-summary-strip">
+        <div class="strip-item">
+          <span class="strip-label">Due Date</span>
+          <span class="strip-value">{{ selectedInstallment.dueDate | date:'mediumDate' }}</span>
+        </div>
+        <div class="strip-item">
+          <span class="strip-label">Scheduled Amount</span>
+          <span class="strip-value">{{ selectedInstallment.amount | currency:'USD' }}</span>
+        </div>
+        <div class="strip-item">
+          <span class="strip-label">Already Paid</span>
+          <span class="strip-value text-success">{{ selectedInstallment.paidAmount | currency:'USD' }}</span>
+        </div>
+        <div class="strip-item">
+          <span class="strip-label">Balance Remaining</span>
+          <span class="strip-value text-warn font-bold">{{ selectedInstallment.outstandingAmount | currency:'USD' }}</span>
+        </div>
+      </div>
+
+      <form [formGroup]="paymentForm" (ngSubmit)="submitPayment()" class="payment-form">
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="form-col">
+            <mat-label>Payment Amount ($) *</mat-label>
+            <input matInput type="number" formControlName="amount" min="0.01" step="0.01">
+            <mat-error *ngIf="paymentForm.get('amount')?.hasError('required')">Amount is required</mat-error>
+            <mat-error *ngIf="paymentForm.get('amount')?.hasError('min')">Must be greater than 0</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="form-col">
+            <mat-label>Payment Reference / Transaction ID *</mat-label>
+            <input matInput formControlName="paymentReference" maxlength="100" placeholder="e.g. TXN-948271">
+            <mat-error *ngIf="paymentForm.get('paymentReference')?.hasError('required')">Reference is required</mat-error>
+            <mat-error *ngIf="paymentForm.get('paymentReference')?.hasError('maxlength')">Max 100 characters</mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="payment-actions">
+          <button mat-stroked-button type="button" (click)="cancelPayment()" [disabled]="isPaying">Cancel</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="paymentForm.invalid || isPaying" class="pay-submit-btn">
+            <mat-icon [class.spinning]="isPaying">{{ isPaying ? 'hourglass_top' : 'payment' }}</mat-icon>
+            <span>{{ isPaying ? 'Processing Payment...' : 'Confirm & Record Payment' }}</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+
+    <!-- Installments Ledger Table Card -->
+    <mat-card class="table-card mat-elevation-z2">
+      <div class="card-header">
+        <div class="title-wrap">
+          <mat-icon color="primary">format_list_numbered</mat-icon>
+          <h2>Installment Schedule Ledger</h2>
+        </div>
+        <span class="record-count">{{ schedule.installments.length }} total installments</span>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Installment ID</th>
+              <th>Due Date</th>
+              <th>Installment Amount</th>
+              <th>Paid Amount</th>
+              <th>Outstanding</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of schedule.installments" [class.highlighted-row]="selectedInstallment?.installmentId === item.installmentId">
+              <td class="font-bold">#{{ item.installmentNumber }}</td>
+              <td class="code-cell font-mono">{{ item.installmentId }}</td>
+              <td>{{ item.dueDate | date:'mediumDate' }}</td>
+              <td class="amount-cell">{{ item.amount | currency:'USD' }}</td>
+              <td class="text-success font-medium">{{ item.paidAmount | currency:'USD' }}</td>
+              <td class="text-warn font-medium">{{ item.outstandingAmount | currency:'USD' }}</td>
+              <td>
+                <span class="status-pill status-{{ item.status | lowercase }}">
+                  {{ item.status }}
+                </span>
+              </td>
+              <td>
+                <button
+                  mat-flat-button
+                  color="accent"
+                  class="pay-btn"
+                  *ngIf="item.status !== 'PAID'"
+                  (click)="openPayment(item)">
+                  <mat-icon>credit_card</mat-icon>
+                  <span>Pay</span>
+                </button>
+                <span *ngIf="item.status === 'PAID'" class="paid-stamp">
+                  <mat-icon>check_circle</mat-icon> Paid
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card>
+  </div>
+</div>

@@ -1,0 +1,40 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Kafka Consumer Lag Max",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "kafka_consumer_fetch_manager_records_lag_max", "legendFormat": "{{client_id}} (lag)" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Resilience4j Circuit Breaker States",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "resilience4j_circuitbreaker_state", "legendFormat": "{{name}} ({{state}})" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Circuit Breaker Call Rates & Failures",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "sum(rate(resilience4j_circuitbreaker_calls_seconds_count[1m])) by (name, kind)", "legendFormat": "{{name}} ({{kind}})" }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["hims", "kafka", "resilience"],
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "HIMS - Kafka & Resilience Monitoring",
+  "uid": "hims-kafka-resilience"
+}

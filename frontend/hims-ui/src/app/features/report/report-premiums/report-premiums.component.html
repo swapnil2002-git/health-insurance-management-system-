@@ -1,0 +1,110 @@
+<div class="report-premiums-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon">
+        <mat-icon>payments</mat-icon>
+      </div>
+      <div>
+        <h1 class="page-title">Premium Revenue & Collection Audit</h1>
+        <p class="page-subtitle">Aggregated daily metrics on premium transaction volume, gross revenue, and collection cash flow</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button color="primary" routerLink="/reports/summary">
+        <mat-icon>dashboard</mat-icon>
+        <span>Executive Dashboard</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Toolbar -->
+  <mat-card class="filter-card mat-elevation-z1">
+    <form [formGroup]="filterForm" (ngSubmit)="loadReport()" class="filter-form">
+      <mat-form-field appearance="outline">
+        <mat-label>Start Date</mat-label>
+        <input matInput type="date" formControlName="startDate" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>End Date</mat-label>
+        <input matInput type="date" formControlName="endDate" />
+      </mat-form-field>
+
+      <div class="filter-btns">
+        <button mat-flat-button color="primary" type="submit" [disabled]="isLoading">
+          <mat-spinner diameter="18" *ngIf="isLoading"></mat-spinner>
+          <mat-icon *ngIf="!isLoading">filter_list</mat-icon>
+          <span>Apply Filter</span>
+        </button>
+        <button mat-button type="button" (click)="resetFilter()" [disabled]="isLoading">Reset</button>
+      </div>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="40"></mat-spinner>
+    <span>Auditing premium collections...</span>
+  </div>
+
+  <!-- Report Data Container -->
+  <div class="report-content" *ngIf="!isLoading && report">
+    <!-- Period Overview KPI Cards -->
+    <div class="overview-grid">
+      <mat-card class="sum-card mat-elevation-z1 text-green">
+        <span class="sc-lbl">Gross Premium Collected</span>
+        <span class="sc-val">${{ (report.overallPremiumAmount || 0) | number:'1.2-2' }}</span>
+        <span class="sc-sub">Total revenue recognized</span>
+      </mat-card>
+
+      <mat-card class="sum-card mat-elevation-z1 text-blue">
+        <span class="sc-lbl">Payments Collected</span>
+        <span class="sc-val">{{ report.overallPaymentsCollected || 0 }}</span>
+        <span class="sc-sub">Completed transactions</span>
+      </mat-card>
+
+      <mat-card class="sum-card mat-elevation-z1 text-teal">
+        <span class="sc-lbl">Average Ticket Size</span>
+        <span class="sc-val">${{ getAverageTicketSize() | number:'1.2-2' }}</span>
+        <span class="sc-sub">Per payment average</span>
+      </mat-card>
+    </div>
+
+    <!-- Daily Breakdown Table -->
+    <mat-card class="table-card mat-elevation-z2">
+      <div class="table-header">
+        <h3>Daily Premium Collections Breakdown</h3>
+        <span class="date-range-badge">{{ report.startDate }} &mdash; {{ report.endDate }}</span>
+      </div>
+
+      <div class="empty-table-msg" *ngIf="!report.dailySummaries || report.dailySummaries.length === 0">
+        <mat-icon>event_busy</mat-icon>
+        <p>No daily premium summary records found for this date range.</p>
+      </div>
+
+      <div class="table-responsive" *ngIf="report.dailySummaries && report.dailySummaries.length > 0">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Payments Count</th>
+              <th>Collected Premium Amount</th>
+              <th>Avg Ticket</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of report.dailySummaries">
+              <td class="font-bold">{{ row.summaryDate }}</td>
+              <td><span class="pill-blue">{{ row.totalPaymentsCollected }}</span></td>
+              <td class="font-bold text-green">${{ (row.totalPremiumAmount || 0) | number:'1.2-2' }}</td>
+              <td class="font-bold text-teal">
+                ${{ (row.totalPaymentsCollected > 0 ? (row.totalPremiumAmount / row.totalPaymentsCollected) : 0) | number:'1.2-2' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card>
+  </div>
+</div>

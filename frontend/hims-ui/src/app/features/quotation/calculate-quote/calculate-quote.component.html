@@ -1,0 +1,216 @@
+<div class="calculate-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Quotation / <span>Calculate Premium</span></div>
+      <h1>Quotation Rating & Calculation</h1>
+      <p class="subtitle">Compute policy underwriting premiums based on member composition and plan rating rules</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToAllQuotes()" class="history-btn">
+        <mat-icon>receipt_long</mat-icon>
+        <span>All Quotations</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Quote Selector Card -->
+  <mat-card class="selector-card mat-elevation-z2">
+    <div class="selector-row">
+      <mat-icon class="search-icon">search</mat-icon>
+      <mat-form-field appearance="outline" class="quote-dropdown">
+        <mat-label>Select Draft Quotation to Calculate</mat-label>
+        <mat-select [value]="quoteIdInput" (selectionChange)="onSelectQuote($event.value)" placeholder="-- Select Draft Quotation --">
+          <mat-option *ngIf="draftQuotes.length === 0" disabled>
+            No draft quotations available. Create a quotation first.
+          </mat-option>
+          <mat-option *ngFor="let q of draftQuotes" [value]="q.quoteId">
+            {{ q.quoteNumber }} &bull; Customer: {{ q.customerId | slice:0:8 }}... &bull; ({{ q.members?.length || 0 }} member{{ (q.members?.length === 1) ? '' : 's' }})
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-stroked-button (click)="loadDraftQuotes()" [disabled]="isLoading" class="refresh-btn">
+        <mat-icon [class.spinning]="isLoading">refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading quote details...</span>
+  </div>
+
+  <!-- Empty State when navigated from sidebar before a quote is selected -->
+  <mat-card *ngIf="!isLoading && !selectedQuote" class="empty-selection-card mat-elevation-z1">
+    <div class="empty-content">
+      <div class="empty-icon-circle">
+        <mat-icon>touch_app</mat-icon>
+      </div>
+      <h3>Select a Draft Quotation</h3>
+      <p>Choose an active draft quotation from the dropdown above to view customer details, member coverage, and compute policy premiums.</p>
+      <div class="empty-actions">
+        <a mat-stroked-button color="primary" [routerLink]="['/quotes/create']" class="new-quote-link">
+          <mat-icon>add</mat-icon>
+          <span>Create New Quotation</span>
+        </a>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- Quote Detail & Rating Engine Panel -->
+  <div *ngIf="!isLoading && selectedQuote" class="detail-container">
+    <!-- Summary Header Card -->
+    <mat-card class="summary-card mat-elevation-z2">
+      <div class="summary-header">
+        <div class="quote-identity">
+          <div class="quote-number-row">
+            <mat-icon class="identity-icon">receipt</mat-icon>
+            <h2>{{ selectedQuote.quoteNumber }}</h2>
+            <span class="status-badge status-{{ selectedQuote.status | lowercase }}">
+              {{ selectedQuote.status }}
+            </span>
+          </div>
+          <span class="quote-meta">
+            Quote ID: <code>{{ selectedQuote.quoteId }}</code> | Created: {{ selectedQuote.createdAt | date:'medium' }}
+          </span>
+        </div>
+
+        <div class="premium-display">
+          <span class="premium-label">Total Premium</span>
+          <div class="premium-value" *ngIf="selectedQuote.totalPremium">
+            <span class="currency">$</span>{{ selectedQuote.totalPremium | number:'1.2-2' }}
+          </div>
+          <div class="premium-pending" *ngIf="!selectedQuote.totalPremium">
+            Pending Calculation
+          </div>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <!-- Key Metadata Grid -->
+      <div class="meta-grid">
+        <div class="meta-cell">
+          <span class="cell-label">Customer ID</span>
+          <code class="cell-val">{{ selectedQuote.customerId }}</code>
+        </div>
+        <div class="meta-cell">
+          <span class="cell-label">Plan ID</span>
+          <code class="cell-val">{{ selectedQuote.planId }}</code>
+        </div>
+        <div class="meta-cell">
+          <span class="cell-label">Expires On</span>
+          <span class="cell-val">{{ selectedQuote.expiresAt | date:'mediumDate' }}</span>
+        </div>
+        <div class="meta-cell">
+          <span class="cell-label">Covered Members</span>
+          <span class="cell-val font-bold">{{ selectedQuote.members.length }} Person(s)</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <div class="content-split">
+      <!-- Members Table -->
+      <mat-card class="members-card mat-elevation-z2">
+        <div class="card-title-row">
+          <mat-icon color="primary">people</mat-icon>
+          <h3>Insured Members ({{ selectedQuote.members.length }})</h3>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Member Name</th>
+                <th>Relationship</th>
+                <th>Date of Birth</th>
+                <th>Gender</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let m of selectedQuote.members; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td class="name-cell">{{ m.memberName }}</td>
+                <td><span class="rel-badge">{{ m.relationship }}</span></td>
+                <td>{{ m.dateOfBirth }}</td>
+                <td>{{ m.gender }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </mat-card>
+
+      <!-- Rating & Calculation Action Card -->
+      <mat-card class="rating-card mat-elevation-z2">
+        <div class="card-title-row">
+          <mat-icon color="primary">calculate</mat-icon>
+          <h3>Premium Calculation</h3>
+        </div>
+        <mat-divider></mat-divider>
+
+        <!-- If DRAFT -> Show Trigger Button -->
+        <div *ngIf="selectedQuote.status === 'DRAFT'" class="trigger-rating-box">
+          <div class="formula-info">
+            <h4>Underwriting Rating Rule:</h4>
+            <p><strong>Base Rate:</strong> $500.00</p>
+            <p><strong>Per Member Cost:</strong> $200.00 × {{ selectedQuote.members.length }} members</p>
+            <div class="estimate-sum">
+              Estimated Total: <strong>${{ 500 + 200 * selectedQuote.members.length }}.00</strong>
+            </div>
+          </div>
+
+          <button
+            mat-flat-button
+            color="primary"
+            (click)="calculatePremium()"
+            [disabled]="isCalculating"
+            class="calc-btn"
+          >
+            <mat-spinner *ngIf="isCalculating" diameter="20" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isCalculating">play_arrow</mat-icon>
+            <span>{{ isCalculating ? 'Calculating Rating...' : 'Execute Premium Calculation' }}</span>
+          </button>
+        </div>
+
+        <!-- If CALCULATED or higher -> Show Breakdown & Decision Route -->
+        <div *ngIf="selectedQuote.status !== 'DRAFT'" class="calculated-details-box">
+          <div class="calculation-success-banner">
+            <mat-icon>check_circle</mat-icon>
+            <div>
+              <strong>Premium Rating Completed</strong>
+              <span>Total calculated premium: ${{ selectedQuote.totalPremium | number:'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <!-- Premiums History -->
+          <div *ngIf="selectedQuote.premiums && selectedQuote.premiums.length > 0" class="premium-history">
+            <h4>Calculation Breakdown:</h4>
+            <div *ngFor="let p of selectedQuote.premiums" class="prem-record">
+              <span class="prem-amt">${{ p.calculatedPremium | number:'1.2-2' }}</span>
+              <span class="prem-details">{{ p.calculationDetails }}</span>
+              <span class="prem-date">{{ p.calculatedAt | date:'medium' }}</span>
+            </div>
+          </div>
+
+          <!-- Action to Decision -->
+          <div class="decision-action-box">
+            <button
+              mat-flat-button
+              color="accent"
+              (click)="goToDecision()"
+              class="decision-btn"
+            >
+              <mat-icon>gavel</mat-icon>
+              <span>Proceed to Accept / Reject Quote</span>
+            </button>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+  </div>
+</div>

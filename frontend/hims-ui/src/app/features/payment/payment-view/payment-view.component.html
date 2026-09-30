@@ -1,0 +1,146 @@
+<div class="view-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Payments / <span>Payment Dossier</span></div>
+      <h1>Payment Transaction Dossier</h1>
+      <p class="subtitle">Complete audit ledger and settlement breakdown for electronic payment transactions</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="printReceipt()" [disabled]="!payment" class="action-btn">
+        <mat-icon>print</mat-icon>
+        <span>Print Receipt</span>
+      </button>
+      <button mat-stroked-button color="primary" (click)="goToConfirm()" *ngIf="payment && payment.status !== 'SUCCESS' && payment.status !== 'REFUNDED'" class="action-btn">
+        <mat-icon>check_circle</mat-icon>
+        <span>Confirm Settlement</span>
+      </button>
+      <button mat-stroked-button color="warn" (click)="goToRefund()" *ngIf="payment && payment.status === 'SUCCESS'" class="action-btn">
+        <mat-icon>currency_exchange</mat-icon>
+        <span>Refund Payment</span>
+      </button>
+      <button mat-flat-button color="primary" routerLink="/payments/pay" class="action-btn">
+        <mat-icon>add</mat-icon>
+        <span>New Payment</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search / Lookup Bar -->
+  <mat-card class="search-card mat-elevation-z2">
+    <form (ngSubmit)="onSearch()" class="search-form">
+      <mat-icon class="search-icon">search</mat-icon>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Enter Payment ID (UUID) to Inspect</mat-label>
+        <input matInput [(ngModel)]="paymentIdInput" name="paymentIdInput" placeholder="e.g. 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d">
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!paymentIdInput || isLoading" class="search-btn">
+        <mat-icon [class.spinning]="isLoading">search</mat-icon>
+        <span>Search Payment</span>
+      </button>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading payment transaction dossier...</span>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && !payment" class="empty-state">
+    <mat-icon>receipt_long</mat-icon>
+    <p>Please enter a Payment Transaction UUID above to view the complete transaction ledger.</p>
+  </div>
+
+  <!-- Dossier Content -->
+  <div *ngIf="!isLoading && payment" class="dossier-content">
+    <!-- Header Card -->
+    <mat-card class="banner-card mat-elevation-z2">
+      <div class="banner-header">
+        <div class="titles">
+          <div class="policy-chip" (click)="goToPolicy()">
+            <mat-icon>policy</mat-icon>
+            <span>Policy: {{ payment.policyId }}</span>
+            <mat-icon class="chip-link">open_in_new</mat-icon>
+          </div>
+          <h2>Payment #{{ payment.paymentId }}</h2>
+        </div>
+        <span class="status-badge status-{{ payment.status | lowercase }}">
+          {{ payment.status }}
+        </span>
+      </div>
+      <mat-divider></mat-divider>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <span class="kpi-lbl">Transaction Amount</span>
+          <span class="kpi-val text-success">{{ payment.amount | currency:(payment.currency || 'USD') }}</span>
+          <span class="kpi-note">{{ payment.currency || 'USD' }} Settlement Currency</span>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-lbl">Payment Rail</span>
+          <span class="kpi-val">{{ payment.paymentMethod }}</span>
+          <span class="kpi-note">Electronic Gateway Rail</span>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-lbl">Reconciliation Status</span>
+          <span class="kpi-val">{{ payment.status }}</span>
+          <span class="kpi-note">General Ledger State</span>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-lbl">Gateway Reference</span>
+          <span class="kpi-val code-font">{{ payment.gatewayReference || 'Awaiting Settlement' }}</span>
+          <span class="kpi-note">External clearing ID</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Audit & Settlement Details -->
+    <mat-card class="details-card mat-elevation-z2">
+      <div class="card-head">
+        <mat-icon color="primary">history</mat-icon>
+        <h3>Settlement Audit Trail & Timestamps</h3>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="details-grid">
+        <div class="d-cell">
+          <span class="d-lbl">Payment ID</span>
+          <span class="d-val code-font">{{ payment.paymentId }}</span>
+        </div>
+        <div class="d-cell">
+          <span class="d-lbl">Related Policy ID</span>
+          <span class="d-val code-font link-val" (click)="goToPolicy()">{{ payment.policyId }}</span>
+        </div>
+        <div class="d-cell">
+          <span class="d-lbl">Initiated Timestamp</span>
+          <span class="d-val">{{ payment.createdAt | date:'medium' }}</span>
+        </div>
+        <div class="d-cell">
+          <span class="d-lbl">Last Settlement / Update</span>
+          <span class="d-val">{{ (payment.updatedAt | date:'medium') || 'Same as initiation' }}</span>
+        </div>
+        <div class="d-cell" *ngIf="payment.failureReason">
+          <span class="d-lbl">Failure Reason</span>
+          <span class="d-val text-failed">{{ payment.failureReason }}</span>
+        </div>
+      </div>
+
+      <div class="details-nav-links">
+        <button mat-stroked-button (click)="goToPolicy()">
+          <mat-icon>shield</mat-icon>
+          <span>View Policy Record</span>
+        </button>
+        <button mat-stroked-button (click)="goToPremium()">
+          <mat-icon>account_balance</mat-icon>
+          <span>View Premium Schedule</span>
+        </button>
+      </div>
+    </mat-card>
+  </div>
+</div>

@@ -1,0 +1,376 @@
+<div class="schedule-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Premium Billing / <span>Schedules</span></div>
+      <h1>Premium Schedule Management</h1>
+      <p class="subtitle">Generate, inspect, and manage policy installment schedules, payment frequencies, and billing timelines</p>
+    </div>
+    <div class="header-actions">
+      <button
+        mat-flat-button
+        color="primary"
+        *ngIf="activeMode === 'inspect'"
+        (click)="activeMode = 'create'"
+      >
+        <mat-icon>add_circle</mat-icon>
+        <span>Create Schedule</span>
+      </button>
+      <button
+        mat-stroked-button
+        *ngIf="activeMode === 'create'"
+        (click)="activeMode = 'inspect'"
+      >
+        <mat-icon>search</mat-icon>
+        <span>Lookup Existing</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MODE 1: INSPECT SCHEDULE -->
+  <div *ngIf="activeMode === 'inspect'" class="mode-container">
+    <!-- Policy & Schedule Lookup Search Bar -->
+    <mat-card class="search-card mat-elevation-z2">
+      <div class="search-card-header">
+        <mat-icon class="search-header-icon">manage_search</mat-icon>
+        <div class="search-header-text">
+          <h3>Search Policy & Associated Premium Schedule</h3>
+          <p>Enter Policy Number or Policy ID to retrieve and select the associated premium schedule.</p>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="search-form-row">
+        <!-- 1. Policy No / Policy ID Input -->
+        <mat-form-field appearance="outline" class="policy-input-field">
+          <mat-label>Policy No. / Policy ID *</mat-label>
+          <input
+            matInput
+            [(ngModel)]="policyInput"
+            name="policyInput"
+            placeholder="e.g. POL-2026-0DC04122 or 0ebed793-6dfd-480e-8c08-a260abc29281"
+            (keyup.enter)="searchPolicySchedules()"
+          />
+          <mat-icon matPrefix class="field-icon">policy</mat-icon>
+          <button
+            *ngIf="policyInput"
+            matSuffix
+            mat-icon-button
+            aria-label="Clear"
+            (click)="policyInput = ''; availableSchedules = []; selectedScheduleId = ''; currentSchedule = null; resolvedPolicy = null"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </mat-form-field>
+
+        <!-- Search Button -->
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="!policyInput || isLoading"
+          (click)="searchPolicySchedules()"
+          class="search-btn"
+        >
+          <mat-icon [class.spinning]="isLoading">search</mat-icon>
+          <span>Find Schedules</span>
+        </button>
+
+        <!-- 2. Associated Schedule ID Dropdown -->
+        <mat-form-field appearance="outline" class="schedule-dropdown-field">
+          <mat-label>Associated Scheduled ID</mat-label>
+          <mat-select
+            [(ngModel)]="selectedScheduleId"
+            name="selectedScheduleId"
+            [disabled]="availableSchedules.length === 0"
+            (selectionChange)="onSelectSchedule($event.value)"
+            placeholder="Select Schedule ID"
+          >
+            <mat-option *ngIf="availableSchedules.length === 0" disabled>
+              Enter Policy No./ID to load schedules
+            </mat-option>
+            <mat-option *ngFor="let s of availableSchedules" [value]="s.scheduleId">
+              <strong>#{{ s.scheduleId }}</strong> — {{ s.paymentFrequency }} ({{ s.totalPremium | currency:'USD' }}) [{{ s.premiumStatus }}]
+            </mat-option>
+          </mat-select>
+          <mat-icon matPrefix class="field-icon">calendar_month</mat-icon>
+          <mat-hint *ngIf="availableSchedules.length > 0">
+            {{ availableSchedules.length }} schedule(s) found for this policy
+          </mat-hint>
+          <mat-hint *ngIf="availableSchedules.length === 0">
+            Search policy above to populate scheduled IDs
+          </mat-hint>
+        </mat-form-field>
+      </div>
+
+      <!-- Resolved Policy Info Pill -->
+      <div *ngIf="resolvedPolicy" class="resolved-policy-pill">
+        <mat-icon>verified</mat-icon>
+        <span>
+          Policy: <strong>{{ resolvedPolicy.policyNumber }}</strong> | Status: <strong>{{ resolvedPolicy.status }}</strong> | Customer: <strong>{{ resolvedPolicy.customerId }}</strong>
+        </span>
+      </div>
+    </mat-card>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="loading-state">
+      <mat-spinner diameter="36"></mat-spinner>
+      <span>Loading premium schedule from billing service...</span>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!isLoading && !currentSchedule" class="empty-state">
+      <mat-icon>schedule</mat-icon>
+      <p>Enter a Policy No. / Policy ID above and select the Schedule ID to view schedule information and installment timeline.</p>
+    </div>
+
+    <!-- Schedule Loaded -->
+    <div *ngIf="!isLoading && currentSchedule" class="schedule-details">
+      <!-- Financial Summary Metric Cards -->
+      <div class="summary-cards-grid">
+        <div class="sum-card total">
+          <div class="card-icon"><mat-icon>account_balance_wallet</mat-icon></div>
+          <div class="card-content">
+            <span class="c-val">{{ currentSchedule.totalPremium | currency:'USD':'symbol':'1.2-2' }}</span>
+            <span class="c-lbl">Total Annual Premium</span>
+          </div>
+        </div>
+
+        <div class="sum-card paid">
+          <div class="card-icon"><mat-icon>check_circle</mat-icon></div>
+          <div class="card-content">
+            <span class="c-val">{{ currentSchedule.paidAmount | currency:'USD':'symbol':'1.2-2' }}</span>
+            <span class="c-lbl">Amount Paid</span>
+          </div>
+        </div>
+
+        <div class="sum-card outstanding">
+          <div class="card-icon"><mat-icon>pending</mat-icon></div>
+          <div class="card-content">
+            <span class="c-val">{{ currentSchedule.outstandingAmount | currency:'USD':'symbol':'1.2-2' }}</span>
+            <span class="c-lbl">Outstanding Balance</span>
+          </div>
+        </div>
+
+        <div class="sum-card freq">
+          <div class="card-icon"><mat-icon>event_repeat</mat-icon></div>
+          <div class="card-content">
+            <span class="c-val">{{ currentSchedule.paymentFrequency }}</span>
+            <span class="c-lbl">{{ currentSchedule.numberOfInstallments }} Installment(s)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Schedule Meta Card -->
+      <mat-card class="schedule-meta-card mat-elevation-z2">
+        <div class="meta-head">
+          <div class="title-with-badge">
+            <h2>Schedule #{{ currentSchedule.scheduleId }}</h2>
+            <span class="status-badge status-{{ currentSchedule.premiumStatus | lowercase }}">
+              {{ currentSchedule.premiumStatus }}
+            </span>
+          </div>
+          <div class="quick-actions">
+            <button mat-stroked-button color="primary" (click)="goToPayInstallments()">
+              <mat-icon>payments</mat-icon>
+              <span>Pay Installments</span>
+            </button>
+            <button mat-stroked-button (click)="goToRecalculate()">
+              <mat-icon>calculate</mat-icon>
+              <span>Recalculate</span>
+            </button>
+            <button mat-stroked-button (click)="goToView()">
+              <mat-icon>visibility</mat-icon>
+              <span>Full View</span>
+            </button>
+          </div>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div class="meta-grid">
+          <div class="meta-item" *ngIf="resolvedPolicy?.policyNumber">
+            <span class="lbl">Policy Number</span>
+            <strong class="val font-mono">{{ resolvedPolicy?.policyNumber }}</strong>
+          </div>
+          <div class="meta-item">
+            <span class="lbl">Policy ID</span>
+            <code class="val">{{ currentSchedule.policyId }}</code>
+          </div>
+          <div class="meta-item">
+            <span class="lbl">Billing Term</span>
+            <span class="val">{{ currentSchedule.startDate }} to {{ currentSchedule.endDate }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="lbl">Created At</span>
+            <span class="val">{{ currentSchedule.createdAt | date:'medium' }}</span>
+          </div>
+        </div>
+      </mat-card>
+
+      <!-- Installments Breakdown Table -->
+      <mat-card class="installments-card mat-elevation-z2">
+        <div class="card-head-row">
+          <div class="title-with-badge">
+            <mat-icon color="primary">view_timeline</mat-icon>
+            <h3>Installment Billing Timeline ({{ currentSchedule.installments.length }})</h3>
+          </div>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Due Date</th>
+                <th>Installment Amount</th>
+                <th>Paid Amount</th>
+                <th>Outstanding</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let inst of currentSchedule.installments">
+                <td class="font-bold">Installment {{ inst.installmentNumber }}</td>
+                <td class="date-cell">{{ inst.dueDate }}</td>
+                <td class="amount-cell">{{ inst.amount | currency:'USD' }}</td>
+                <td class="paid-cell">{{ inst.paidAmount | currency:'USD' }}</td>
+                <td class="outstanding-cell">{{ inst.outstandingAmount | currency:'USD' }}</td>
+                <td>
+                  <span class="status-badge status-{{ inst.status | lowercase }}">
+                    {{ inst.status }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- Recent Schedules Queue -->
+    <mat-card class="recent-card mat-elevation-z2" *ngIf="recentSchedules.length > 0">
+      <div class="card-head-row">
+        <div class="title-with-badge">
+          <mat-icon color="primary">history</mat-icon>
+          <h3>Recently Accessed Schedules</h3>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="recent-grid">
+        <div
+          *ngFor="let s of recentSchedules"
+          class="recent-item"
+          (click)="selectRecent(s)"
+        >
+          <div class="r-top">
+            <span class="r-freq">{{ s.paymentFrequency }}</span>
+            <span class="status-badge status-{{ s.premiumStatus | lowercase }}">{{ s.premiumStatus }}</span>
+          </div>
+          <div class="r-amt">{{ s.totalPremium | currency:'USD' }}</div>
+          <div class="r-pid">Policy: {{ s.policyId }}</div>
+        </div>
+      </div>
+    </mat-card>
+  </div>
+
+  <!-- MODE 2: CREATE SCHEDULE FORM -->
+  <div *ngIf="activeMode === 'create'" class="mode-container">
+    <mat-card class="form-card mat-elevation-z2">
+      <div class="card-head-row">
+        <mat-icon color="primary">playlist_add</mat-icon>
+        <h3>Manual Premium Schedule Generation</h3>
+      </div>
+      <p class="form-subtext">Configure billing periodicity, base rates, risk loadings, and statutory taxes to partition policy premium into recurring installments.</p>
+      <mat-divider></mat-divider>
+
+      <form [formGroup]="createForm" (ngSubmit)="onCreateSchedule()" class="schedule-form">
+        <!-- Policy ID & Frequency -->
+        <div class="form-grid-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Policy ID (UUID) *</mat-label>
+            <input matInput formControlName="policyId" placeholder="e.g. 558597b5-be4a-43d0-b1cf-bbcb2cf56e1e">
+            <mat-error *ngIf="createForm.get('policyId')?.hasError('required')">Policy ID is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Payment Frequency *</mat-label>
+            <mat-select formControlName="paymentFrequency">
+              <mat-option *ngFor="let f of frequencies" [value]="f.value">
+                <strong>{{ f.label }}</strong> — <span class="opt-desc">{{ f.desc }}</span>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Schedule Dates -->
+        <div class="form-grid-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Billing Start Date *</mat-label>
+            <input matInput type="date" formControlName="startDate">
+            <mat-error *ngIf="createForm.get('startDate')?.hasError('required')">Start date is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Billing End Date *</mat-label>
+            <input matInput type="date" formControlName="endDate">
+            <mat-error *ngIf="createForm.get('endDate')?.hasError('required')">End date is required</mat-error>
+          </mat-form-field>
+        </div>
+
+        <!-- Premium Breakdown Components -->
+        <div class="section-title">Actuarial Financial Breakdown ($)</div>
+        <div class="form-grid-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Base Premium ($) *</mat-label>
+            <input matInput type="number" formControlName="basePremium">
+            <mat-error *ngIf="createForm.get('basePremium')?.hasError('required')">Base premium required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Rider Premium ($)</mat-label>
+            <input matInput type="number" formControlName="riderPremium">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Underwriting Risk Loading ($)</mat-label>
+            <input matInput type="number" formControlName="riskLoading">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Discount ($)</mat-label>
+            <input matInput type="number" formControlName="discount">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Taxes & Regulatory Surcharges ($)</mat-label>
+            <input matInput type="number" formControlName="tax">
+          </mat-form-field>
+
+          <!-- Computed Total Preview Box -->
+          <div class="computed-total-box">
+            <span class="preview-lbl">Estimated Total Premium</span>
+            <span class="preview-val">{{ computedTotalPreview | currency:'USD' }}</span>
+          </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button mat-button type="button" (click)="activeMode = 'inspect'">Cancel</button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="createForm.invalid || isSubmitting"
+            class="submit-btn"
+          >
+            <mat-spinner *ngIf="isSubmitting" diameter="18" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isSubmitting">schedule_send</mat-icon>
+            <span>{{ isSubmitting ? 'Generating Schedule...' : 'Generate Premium Schedule' }}</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+  </div>
+</div>

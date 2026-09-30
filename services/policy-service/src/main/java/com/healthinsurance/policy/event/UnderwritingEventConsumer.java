@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -27,6 +28,7 @@ public class UnderwritingEventConsumer {
     private final PolicyService policyService;
     private final QuotationClient quotationClient;
     private final ProductClient productClient;
+    private final com.healthinsurance.policy.client.CustomerClient customerClient;
     private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = "underwriting-events", groupId = "policy-group")
@@ -54,22 +56,43 @@ public class UnderwritingEventConsumer {
             request.setEffectiveDate(Instant.now());
             request.setExpiryDate(Instant.now().plus(365, ChronoUnit.DAYS));
 
-            // Map Members
-            if (quote.getMembers() != null) {
-                request.setMembers(quote.getMembers().stream().map(m -> {
+            // Map Members: Fetch real member IDs from Customer Service
+            List<PolicyMemberRequest> policyMembers = new ArrayList<>();
+            try {
+                log.info("Fetching real registered members from Customer Service for Customer: {}", event.getCustomerId());
+                List<com.healthinsurance.policy.client.dto.CustomerMemberDto> customerMembers = customerClient.getMembersByCustomerId(event.getCustomerId());
+                if (customerMembers != null && !customerMembers.isEmpty()) {
+                    for (com.healthinsurance.policy.client.dto.CustomerMemberDto cm : customerMembers) {
+                        PolicyMemberRequest pmr = new PolicyMemberRequest();
+                        pmr.setMemberId(cm.getMemberId());
+                        policyMembers.add(pmr);
+                        log.info("Enrolled real Customer Member in Policy: {} ({})", cm.getMemberId(), cm.getFirstName());
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Could not retrieve customer members via CustomerClient: {}", ex.getMessage());
+            }
+
+            // Fallback: If no customer members were found in Customer Service, use quote members
+            if (policyMembers.isEmpty() && quote.getMembers() != null) {
+                for (com.healthinsurance.policy.client.dto.QuoteMemberDto m : quote.getMembers()) {
                     PolicyMemberRequest pmr = new PolicyMemberRequest();
                     pmr.setMemberId(m.getQuoteMemberId());
-                    return pmr;
-                }).collect(Collectors.toList()));
+                    policyMembers.add(pmr);
+                }
             }
+            request.setMembers(policyMembers);
 
             // Map Coverages
             if (plan.getCoverages() != null) {
                 request.setCoverages(plan.getCoverages().stream().map(c -> {
                     PolicyCoverageRequest pcr = new PolicyCoverageRequest();
-                    pcr.setCoverageName(c.getCoverageName());
-                    pcr.setCoverageAmount(c.getCoverageAmount());
-                    pcr.setDeductible(c.getDeductible());
+                    String covName = (c.getCoverageName() != null && !c.getCoverageName().isBlank()) 
+                            ? c.getCoverageName() 
+                            : "Standard Comprehensive Coverage";
+                    pcr.setCoverageName(covName);
+                    pcr.setCoverageAmount(c.getCoverageAmount() != null ? c.getCoverageAmount() : java.math.BigDecimal.valueOf(500000.00));
+                    pcr.setDeductible(c.getDeductible() != null ? c.getDeductible() : java.math.BigDecimal.ZERO);
                     return pcr;
                 }).collect(Collectors.toList()));
             }

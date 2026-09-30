@@ -23,6 +23,7 @@ import com.healthinsurance.payment.repository.RefundTransactionRepository;
 import com.healthinsurance.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -196,6 +197,13 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional(readOnly = true)
     public List<PaymentResponse> getPaymentsByPolicy(UUID policyId) {
         List<PaymentTransaction> payments = paymentRepository.findByPolicyIdOrderByCreatedAtDesc(policyId);
+        return mapper.toPaymentResponses(payments);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getAllPayments() {
+        List<PaymentTransaction> payments = paymentRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
         return mapper.toPaymentResponses(payments);
     }
 }

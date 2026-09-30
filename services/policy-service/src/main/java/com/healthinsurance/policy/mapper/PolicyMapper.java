@@ -23,6 +23,16 @@ public interface PolicyMapper {
     PolicyMemberResponse toResponse(PolicyMember entity);
     PolicyCoverageResponse toResponse(PolicyCoverage entity);
     PolicyBeneficiaryResponse toResponse(PolicyBeneficiary entity);
+    @Mapping(target = "changeData", ignore = true)
+    @Mapping(target = "policyId", source = "policy.policyId")
+    @Mapping(target = "policyNumber", source = "policy.policyNumber")
     PolicyEndorsementResponse toResponse(PolicyEndorsement entity);
+
+    @Mapping(target = "policyId", source = "policy.policyId")
+    @Mapping(target = "policyNumber", source = "policy.policyNumber")
     PolicyCancellationResponse toResponse(PolicyCancellation entity);
+
+    @Mapping(target = "policyId", source = "policy.policyId")
+    @Mapping(target = "policyNumber", source = "policy.policyNumber")
+    PolicyRenewalResponse toResponse(PolicyRenewal entity);
 }

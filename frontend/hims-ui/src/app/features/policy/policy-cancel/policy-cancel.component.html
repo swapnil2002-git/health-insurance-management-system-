@@ -1,0 +1,193 @@
+<div class="cancel-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Policy Management / <span>Cancellation</span></div>
+      <h1>Policy Contract Cancellation</h1>
+      <p class="subtitle">Submit formal policy cancellation requests, calculate pro-rated premium refunds, and process terminations</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToPolicies()" class="action-btn">
+        <mat-icon>arrow_back</mat-icon>
+        <span>All Policies</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search / Lookup Bar -->
+  <mat-card class="search-card mat-elevation-z2">
+    <form (ngSubmit)="onSearch()" class="search-form">
+      <mat-icon class="search-icon">search</mat-icon>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Enter Active Policy ID (UUID) for Cancellation</mat-label>
+        <input matInput [(ngModel)]="policyIdInput" name="policyIdInput" placeholder="e.g. 48588521-75a0-496f-bcf9-05b1a69549e9">
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!policyIdInput || isLoading" class="search-btn">
+        <mat-icon [class.spinning]="isLoading">search</mat-icon>
+        <span>Find Policy</span>
+      </button>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading policy contract...</span>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && !policy" class="empty-state">
+    <mat-icon>cancel_presentation</mat-icon>
+    <p>Please enter an Active Policy UUID above to review or submit cancellation requests.</p>
+  </div>
+
+  <!-- Policy Loaded -->
+  <div *ngIf="!isLoading && policy" class="cancel-container">
+    <!-- Policy Summary Header Card -->
+    <mat-card class="policy-meta-card mat-elevation-z2">
+      <div class="meta-head">
+        <div class="meta-title">
+          <h2>{{ policy.policyNumber || 'POLICY CONTRACT' }}</h2>
+          <span class="status-badge status-{{ policy.status | lowercase }}">{{ policy.status }}</span>
+        </div>
+        <span class="term-dates">
+          Effective: {{ policy.effectiveDate | date:'mediumDate' }} — Expiry: {{ policy.expiryDate | date:'mediumDate' }}
+        </span>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="lbl">Customer ID</span>
+          <code class="val">{{ policy.customerId }}</code>
+        </div>
+        <div class="meta-item">
+          <span class="lbl">Plan ID</span>
+          <code class="val">{{ policy.planId }}</code>
+        </div>
+        <div class="meta-item">
+          <span class="lbl">Quote ID</span>
+          <code class="val">{{ policy.quoteId }}</code>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Already Cancelled Notice -->
+    <div *ngIf="policy.status === 'CANCELLED'" class="cancelled-notice">
+      <mat-icon>cancel</mat-icon>
+      <div>
+        <h3>Policy is CANCELLED</h3>
+        <p>This insurance contract has been officially terminated. No further cancellation actions are permitted.</p>
+      </div>
+    </div>
+
+    <!-- Active Cancellation Request Card (if one already exists) -->
+    <mat-card *ngIf="cancellation" class="cancellation-status-card mat-elevation-z2">
+      <div class="card-head-row">
+        <div class="title-with-badge">
+          <mat-icon color="warn">info</mat-icon>
+          <h3>Active Cancellation Record</h3>
+          <span class="status-badge status-{{ cancellation.status | lowercase }}">{{ cancellation.status }}</span>
+        </div>
+        <span class="submitted-date">Submitted: {{ cancellation.createdAt | date:'medium' }}</span>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="cancel-details-grid">
+        <div class="detail-cell">
+          <span class="lbl">Cancellation ID</span>
+          <code class="val">{{ cancellation.cancellationId }}</code>
+        </div>
+        <div class="detail-cell">
+          <span class="lbl">Reason for Cancellation</span>
+          <span class="val font-bold">{{ cancellation.reason }}</span>
+        </div>
+        <div class="detail-cell">
+          <span class="lbl">Requested By</span>
+          <span class="val">{{ cancellation.requestedBy || 'Customer' }}</span>
+        </div>
+        <div class="detail-cell" *ngIf="cancellation.refundAmount !== undefined && cancellation.refundAmount !== null">
+          <span class="lbl">Refund Amount</span>
+          <span class="val amount-cell">{{ cancellation.refundAmount | currency:'USD' }}</span>
+        </div>
+      </div>
+
+      <!-- Admin Decision Actions if status is REQUESTED -->
+      <div *ngIf="cancellation.status === 'REQUESTED'" class="admin-actions-box">
+        <span class="admin-prompt">Administrative Action:</span>
+        <div class="btn-group">
+          <button mat-flat-button color="warn" (click)="onApproveCancellation()">
+            <mat-icon>check_circle</mat-icon>
+            <span>Approve Cancellation & Process Refund</span>
+          </button>
+          <button mat-stroked-button (click)="onRejectCancellation()">
+            <mat-icon>cancel</mat-icon>
+            <span>Reject Request</span>
+          </button>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Cancellation Request Form (Only if ACTIVE and NO existing cancellation) -->
+    <mat-card *ngIf="policy.status === 'ACTIVE' && !cancellation" class="form-card mat-elevation-z2">
+      <div class="card-head-row">
+        <mat-icon color="warn">warning</mat-icon>
+        <h3>Request Policy Cancellation</h3>
+      </div>
+      <mat-divider></mat-divider>
+
+      <!-- Standard presets -->
+      <div class="preset-reasons">
+        <span class="presets-title">Common Cancellation Reasons:</span>
+        <div class="chips-container">
+          <button
+            type="button"
+            *ngFor="let r of commonReasons"
+            class="chip-btn"
+            (click)="selectReason(r)"
+          >
+            {{ r }}
+          </button>
+        </div>
+      </div>
+
+      <form [formGroup]="cancelForm" (ngSubmit)="onSubmitCancellation()" class="cancel-form">
+        <!-- Reason -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Reason for Cancellation *</mat-label>
+          <input matInput formControlName="reason" maxlength="500" placeholder="State clear grounds for contract cancellation">
+          <mat-error *ngIf="cancelForm.get('reason')?.hasError('required')">Reason is required</mat-error>
+          <mat-error *ngIf="cancelForm.get('reason')?.hasError('minlength')">Must be at least 5 characters</mat-error>
+          <mat-error *ngIf="cancelForm.get('reason')?.hasError('maxlength')">Cannot exceed 500 characters</mat-error>
+        </mat-form-field>
+
+        <!-- Requested By -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Requested By *</mat-label>
+          <input matInput formControlName="requestedBy" maxlength="100" placeholder="Applicant / Policy Holder">
+        </mat-form-field>
+
+        <!-- Warning banner -->
+        <div class="warning-alert">
+          <mat-icon>info</mat-icon>
+          <span>Cancelling this policy will initiate refund computation and notify policy administration. Coverage will lapse upon approval.</span>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button
+            mat-flat-button
+            color="warn"
+            type="submit"
+            [disabled]="cancelForm.invalid || isSubmitting"
+            class="submit-btn"
+          >
+            <mat-spinner *ngIf="isSubmitting" diameter="18" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isSubmitting">cancel</mat-icon>
+            <span>{{ isSubmitting ? 'Submitting Cancellation...' : 'Submit Cancellation Request' }}</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+  </div>
+</div>

@@ -36,11 +36,32 @@ public class PolicyServiceImpl implements PolicyService {
     private final PolicyRepository policyRepository;
     private final PolicyMapper mapper;
     private final PolicyEventProducer eventProducer;
+    private final com.healthinsurance.policy.outbox.OutboxEventRepository outboxEventRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final com.healthinsurance.policy.client.CustomerClient customerClient;
 
     @Override
     @Transactional
     public PolicyResponse createPolicy(PolicyCreateRequest request) {
         log.info("Creating new Policy in DRAFT state for Customer ID: {}", request.getCustomerId());
+
+        // If members were not supplied, automatically fetch and enroll the customer's members
+        if ((request.getMembers() == null || request.getMembers().isEmpty()) && request.getCustomerId() != null) {
+            try {
+                List<com.healthinsurance.policy.client.dto.CustomerMemberDto> custMembers = customerClient.getMembersByCustomerId(request.getCustomerId());
+                if (custMembers != null && !custMembers.isEmpty()) {
+                    List<com.healthinsurance.policy.dto.request.PolicyMemberRequest> pmrList = custMembers.stream().map(cm -> {
+                        com.healthinsurance.policy.dto.request.PolicyMemberRequest pmr = new com.healthinsurance.policy.dto.request.PolicyMemberRequest();
+                        pmr.setMemberId(cm.getMemberId());
+                        return pmr;
+                    }).collect(Collectors.toList());
+                    request.setMembers(pmrList);
+                    log.info("Auto-enrolled {} members from Customer Service for Customer: {}", pmrList.size(), request.getCustomerId());
+                }
+            } catch (Exception ex) {
+                log.warn("Could not auto-fetch customer members: {}", ex.getMessage());
+            }
+        }
 
         Policy policy = mapper.toEntity(request);
         policy.setStatus(PolicyStatus.DRAFT);
@@ -51,19 +72,51 @@ public class PolicyServiceImpl implements PolicyService {
         if (policy.getCoverages() != null) policy.getCoverages().forEach(c -> c.setPolicy(policy));
         if (policy.getBeneficiaries() != null) policy.getBeneficiaries().forEach(b -> b.setPolicy(policy));
 
-        return mapper.toResponse(policyRepository.save(policy));
+        return enrichPolicyResponse(mapper.toResponse(policyRepository.save(policy)), policy.getCustomerId());
     }
 
     @Override
     public PolicyResponse getPolicy(UUID policyId) {
         Policy policy = policyRepository.findById(policyId)
                 .orElseThrow(() -> new PolicyNotFoundException("Policy not found with ID: " + policyId));
-        return mapper.toResponse(policy);
+        return enrichPolicyResponse(mapper.toResponse(policy), policy.getCustomerId());
     }
 
     @Override
     public List<PolicyResponse> getAllPolicies() {
-        return policyRepository.findAll().stream().map(mapper::toResponse).collect(Collectors.toList());
+        return policyRepository.findAll().stream()
+                .map(p -> enrichPolicyResponse(mapper.toResponse(p), p.getCustomerId()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PolicyResponse> getPoliciesByCustomerId(UUID customerId) {
+        return policyRepository.findByCustomerId(customerId).stream()
+                .map(p -> enrichPolicyResponse(mapper.toResponse(p), customerId))
+                .collect(Collectors.toList());
+    }
+
+    private PolicyResponse enrichPolicyResponse(PolicyResponse response, UUID customerId) {
+        if (response == null || customerId == null) return response;
+
+        // If members list is empty, resolve and include customer's registered members
+        if (response.getMembers() == null || response.getMembers().isEmpty()) {
+            try {
+                List<com.healthinsurance.policy.client.dto.CustomerMemberDto> custMembers = customerClient.getMembersByCustomerId(customerId);
+                if (custMembers != null && !custMembers.isEmpty()) {
+                    List<com.healthinsurance.policy.dto.response.PolicyMemberResponse> pmList = custMembers.stream().map(cm -> {
+                        com.healthinsurance.policy.dto.response.PolicyMemberResponse pmr = new com.healthinsurance.policy.dto.response.PolicyMemberResponse();
+                        pmr.setPolicyMemberId(UUID.randomUUID());
+                        pmr.setMemberId(cm.getMemberId());
+                        return pmr;
+                    }).collect(Collectors.toList());
+                    response.setMembers(pmList);
+                }
+            } catch (Exception ex) {
+                log.warn("Could not enrich policy members for customer {}: {}", customerId, ex.getMessage());
+            }
+        }
+        return response;
     }
 
     @Override
@@ -84,22 +137,47 @@ public class PolicyServiceImpl implements PolicyService {
         policy.setUpdatedAt(Instant.now());
 
         Policy savedPolicy = policyRepository.save(policy);
-        log.info("Policy {} issued. Publishing Kafka Event.", savedPolicy.getPolicyNumber());
+        log.info("Policy {} issued. Saving Outbox Event.", savedPolicy.getPolicyNumber());
         
-        // Step 16: Publish Kafka Event
-        PolicyIssuedEvent event = new PolicyIssuedEvent(
-                "POLICY_ISSUED",
-                savedPolicy.getPolicyId(),
-                savedPolicy.getPolicyNumber(),
-                savedPolicy.getCustomerId(),
-                savedPolicy.getQuoteId(),
-                savedPolicy.getPlanId(),
-                savedPolicy.getEffectiveDate(),
-                savedPolicy.getExpiryDate(),
-                savedPolicy.getStatus().name(),
-                Instant.now()
-        );
-        eventProducer.publishPolicyIssued(event);
+        // Outbox Pattern: Save event to database atomically
+        String eventId = UUID.randomUUID().toString();
+        String effectiveDateStr = savedPolicy.getEffectiveDate() != null ? savedPolicy.getEffectiveDate().toString() : Instant.now().toString();
+        String expiryDateStr = savedPolicy.getExpiryDate() != null ? savedPolicy.getExpiryDate().toString() : Instant.now().plus(365, java.time.temporal.ChronoUnit.DAYS).toString();
+        String payload = String.format("{\"eventType\":\"PolicyIssued\",\"eventId\":\"%s\",\"policyId\":\"%s\",\"policyNumber\":\"%s\",\"customerId\":\"%s\",\"quoteId\":\"%s\",\"planId\":\"%s\",\"effectiveDate\":\"%s\",\"expiryDate\":\"%s\"}",
+                eventId, savedPolicy.getPolicyId(), savedPolicy.getPolicyNumber(), savedPolicy.getCustomerId(), savedPolicy.getQuoteId(), savedPolicy.getPlanId(), effectiveDateStr, expiryDateStr);
+        
+        com.healthinsurance.policy.outbox.OutboxEvent outboxEvent = com.healthinsurance.policy.outbox.OutboxEvent.builder()
+                .eventId(eventId)
+                .eventType("PolicyIssued")
+                .aggregateId(savedPolicy.getPolicyId().toString())
+                .topic("policy-events")
+                .partitionKey(savedPolicy.getPolicyId().toString())
+                .payload(payload)
+                .status(com.healthinsurance.policy.outbox.OutboxStatus.PENDING)
+                .retryCount(0)
+                .maxRetries(5)
+                .createdAt(Instant.now())
+                .build();
+
+        outboxEventRepository.save(outboxEvent);
+
+        // Also dispatch directly to Kafka via PolicyEventProducer to guarantee real-time delivery
+        try {
+            com.healthinsurance.policy.event.PolicyIssuedEvent issuedEvent = new com.healthinsurance.policy.event.PolicyIssuedEvent();
+            issuedEvent.setEventType("PolicyIssued");
+            issuedEvent.setPolicyId(savedPolicy.getPolicyId());
+            issuedEvent.setPolicyNumber(savedPolicy.getPolicyNumber());
+            issuedEvent.setCustomerId(savedPolicy.getCustomerId());
+            issuedEvent.setQuoteId(savedPolicy.getQuoteId());
+            issuedEvent.setPlanId(savedPolicy.getPlanId());
+            issuedEvent.setEffectiveDate(savedPolicy.getEffectiveDate());
+            issuedEvent.setExpiryDate(savedPolicy.getExpiryDate());
+            issuedEvent.setStatus(savedPolicy.getStatus().name());
+            issuedEvent.setTimestamp(Instant.now());
+            eventProducer.publishPolicyIssued(issuedEvent);
+        } catch (Exception e) {
+            log.error("Failed to directly dispatch PolicyIssuedEvent for policy {}: {}", savedPolicy.getPolicyNumber(), e.getMessage());
+        }
 
         return mapper.toResponse(savedPolicy);
     }
@@ -165,6 +243,24 @@ public class PolicyServiceImpl implements PolicyService {
         policy.setUpdatedAt(Instant.now());
         
         return mapper.toResponse(policyRepository.save(policy));
+    }
+
+    @Override
+    @Transactional
+    public PolicyResponse compensatePolicyIssuance(UUID policyId, String reason) {
+        log.warn("Executing SAGA compensation for policy {}: {}", policyId, reason);
+        Policy policy = policyRepository.findById(policyId)
+                .orElseThrow(() -> new PolicyNotFoundException("Policy not found: " + policyId));
+
+        // Idempotency check: only suspend if not already ACTIVE
+        if (policy.getStatus() != PolicyStatus.ACTIVE) {
+            policy.setStatus(PolicyStatus.SUSPENDED);
+            policy.setUpdatedAt(Instant.now());
+            Policy saved = policyRepository.save(policy);
+            return mapper.toResponse(saved);
+        }
+
+        return mapper.toResponse(policy);
     }
 
     private String generateUniquePolicyNumber() {

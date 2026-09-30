@@ -1,0 +1,311 @@
+<div class="risk-page">
+  <!-- Centered Popup Feedback Modal for Risk Assessment Creation -->
+  <div *ngIf="modalData" class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-container mat-elevation-z8" (click)="$event.stopPropagation()">
+      <!-- Close cross mark in top-right corner -->
+      <button mat-icon-button class="modal-close-btn" (click)="closeModal()" title="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+
+      <div class="modal-header">
+        <div class="modal-icon-circle" [ngClass]="modalData.type">
+          <mat-icon *ngIf="modalData.type === 'success'">check_circle</mat-icon>
+          <mat-icon *ngIf="modalData.type === 'error'">error</mat-icon>
+        </div>
+        <h2 class="modal-title">{{ modalData.title }}</h2>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-message">{{ modalData.message }}</p>
+
+        <!-- Risk Assessment Details Card -->
+        <div *ngIf="modalData.assessmentId" class="assessment-id-card">
+          <!-- Assessment ID -->
+          <div class="card-row">
+            <span class="id-label">Risk Assessment ID (UUID)</span>
+            <div class="id-value-row">
+              <span class="id-code font-bold assessment-num">{{ modalData.assessmentId }}</span>
+              <button
+                mat-icon-button
+                type="button"
+                class="copy-btn"
+                (click)="copyText(modalData.assessmentId, 'assessmentId')"
+                [title]="copiedField === 'assessmentId' ? 'Copied!' : 'Copy Assessment ID'"
+              >
+                <mat-icon>{{ copiedField === 'assessmentId' ? 'done' : 'content_copy' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <mat-divider style="margin: 8px 0;"></mat-divider>
+
+          <!-- Customer ID -->
+          <div class="card-row">
+            <span class="id-label">Customer ID (UUID)</span>
+            <div class="id-value-row">
+              <span class="id-code uuid-code">{{ modalData.customerId }}</span>
+              <button
+                mat-icon-button
+                type="button"
+                class="copy-btn"
+                (click)="copyText(modalData.customerId, 'customerId')"
+                [title]="copiedField === 'customerId' ? 'Copied!' : 'Copy Customer ID'"
+              >
+                <mat-icon>{{ copiedField === 'customerId' ? 'done' : 'content_copy' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <mat-divider style="margin: 8px 0;"></mat-divider>
+
+          <!-- Associated Quote ID -->
+          <div class="card-row">
+            <span class="id-label">Associated Policy Quote ID (UUID)</span>
+            <div class="id-value-row">
+              <span class="id-code uuid-code">{{ modalData.quoteId }}</span>
+              <button
+                mat-icon-button
+                type="button"
+                class="copy-btn"
+                (click)="copyText(modalData.quoteId, 'quoteId')"
+                [title]="copiedField === 'quoteId' ? 'Copied!' : 'Copy Quote ID'"
+              >
+                <mat-icon>{{ copiedField === 'quoteId' ? 'done' : 'content_copy' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="meta-status-row">
+            <div class="status-col">
+              <span class="id-label">Initial Status</span>
+              <span class="status-badge status-created">{{ modalData.status || 'CREATED' }}</span>
+            </div>
+          </div>
+
+          <span *ngIf="copiedField" class="copy-hint">✓ Copied to clipboard!</span>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <!-- OK button -->
+        <button mat-flat-button color="primary" class="modal-ok-btn" (click)="closeModal()">
+          <mat-icon>check</mat-icon>
+          <span>OK</span>
+        </button>
+
+        <!-- Calculate Risk button -->
+        <a
+          *ngIf="modalData.type === 'success' && modalData.assessmentId"
+          mat-stroked-button
+          color="accent"
+          [routerLink]="['/risk/calculate']"
+          [queryParams]="{ assessmentId: modalData.assessmentId }"
+          (click)="closeModal()"
+          class="modal-secondary-btn"
+          title="Proceed to calculate risk scores for this assessment"
+        >
+          <mat-icon>speed</mat-icon>
+          <span>Calculate Risk</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Risk Assessment / <span>Assess Risk</span></div>
+      <h1>Underwriting Risk Assessment</h1>
+      <p class="subtitle">Gather medical, occupational, and behavioral risk factors to evaluate insurance risk profile</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToCalculate()" class="action-btn">
+        <mat-icon>speed</mat-icon>
+        <span>Calculate Risk</span>
+      </button>
+      <button mat-stroked-button (click)="goToView()" class="action-btn">
+        <mat-icon>visibility</mat-icon>
+        <span>View Assessment</span>
+      </button>
+    </div>
+  </div>
+
+  <mat-card class="form-card mat-elevation-z2">
+    <form [formGroup]="assessForm" #formDirective="ngForm" (ngSubmit)="onSubmit(formDirective)" class="assess-form">
+      <!-- Section 1: Customer & Quote Association -->
+      <div class="form-section">
+        <div class="section-title">
+          <mat-icon color="primary">assignment_ind</mat-icon>
+          <h3>1. Customer & Policy Quote Target</h3>
+        </div>
+        <div class="section-grid">
+          <!-- Customer ID Input & Verify -->
+          <div class="customer-input-col">
+            <mat-form-field appearance="outline" class="form-field full-width">
+              <mat-label>Customer ID (UUID) *</mat-label>
+              <input
+                matInput
+                formControlName="customerId"
+                placeholder="e.g. ac68d0d5-9a55-49b8-a926-452699f81cbb"
+                (blur)="onCustomerIdBlur()"
+                (keyup.enter)="onCustomerIdEnter()"
+              >
+              <mat-icon matPrefix class="field-icon">person</mat-icon>
+              
+              <!-- Clear button -->
+              <button
+                *ngIf="!isVerifyingCustomer && activeCustomer"
+                mat-icon-button
+                matSuffix
+                type="button"
+                (click)="clearCustomer()"
+                title="Clear customer"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+
+              <!-- Search button -->
+              <button
+                *ngIf="!isVerifyingCustomer && !activeCustomer"
+                mat-icon-button
+                matSuffix
+                type="button"
+                (click)="onSearchCustomer()"
+                [disabled]="!assessForm.get('customerId')?.value"
+                title="Verify Customer ID & Load Associated Quotes"
+              >
+                <mat-icon>search</mat-icon>
+              </button>
+
+              <mat-spinner *ngIf="isVerifyingCustomer" matSuffix diameter="20" class="field-spinner"></mat-spinner>
+
+              <mat-hint *ngIf="activeCustomer" class="customer-hint">
+                Verified: <strong>{{ activeCustomer.firstName }} {{ activeCustomer.lastName }}</strong>
+              </mat-hint>
+              <mat-error *ngIf="assessForm.get('customerId')?.hasError('required')">Customer ID is required</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Quote Selection -->
+          <div class="quote-input-col">
+            <mat-form-field appearance="outline" class="form-field full-width">
+              <mat-label>Associated Policy Quote *</mat-label>
+              <mat-select formControlName="quoteId" [disabled]="isLoadingQuotes" placeholder="-- Select Associated Policy Quote --">
+                <mat-option *ngIf="!assessForm.get('customerId')?.value" disabled>
+                  Please enter a Customer ID first to load policy quotes.
+                </mat-option>
+                <mat-option *ngIf="assessForm.get('customerId')?.value && quotes.length === 0 && !isLoadingQuotes" disabled>
+                  No policy quotes found for this customer.
+                </mat-option>
+                <mat-option *ngFor="let q of quotes" [value]="q.quoteId">
+                  {{ q.quoteNumber }} &bull; Status: {{ q.status }} &bull; (Premium: ${{ q.totalPremium || '0' }})
+                </mat-option>
+              </mat-select>
+              <mat-icon matPrefix class="field-icon">receipt</mat-icon>
+              <mat-hint *ngIf="isLoadingQuotes">Loading customer's quotations...</mat-hint>
+              <mat-hint *ngIf="!isLoadingQuotes && quotes.length > 0">
+                Found {{ quotes.length }} quotation(s) for this customer
+              </mat-hint>
+              <mat-error *ngIf="assessForm.get('quoteId')?.hasError('required')">Policy Quote is required</mat-error>
+            </mat-form-field>
+          </div>
+        </div>
+      </div>
+
+      <mat-divider class="section-divider"></mat-divider>
+
+      <!-- Section 2: Underwriting Risk Factors -->
+      <div class="form-section">
+        <div class="section-header-bar">
+          <div class="section-title">
+            <mat-icon color="primary">fact_check</mat-icon>
+            <h3>2. Risk Factors & Medical Questionnaire ({{ factorsArray.length }})</h3>
+          </div>
+          <div class="header-btn-group">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="loadStandardQuestionnaire()"
+              class="preset-btn"
+              title="Reset questionnaire to standard underwriting baseline"
+            >
+              <mat-icon>playlist_add_check</mat-icon>
+              <span>Load Baseline Factors</span>
+            </button>
+            <button
+              mat-flat-button
+              color="accent"
+              type="button"
+              (click)="addFactor()"
+              class="add-factor-btn"
+            >
+              <mat-icon>add</mat-icon>
+              <span>Add Custom Factor</span>
+            </button>
+          </div>
+        </div>
+
+        <div formArrayName="factors" class="factors-list">
+          <div
+            *ngFor="let f of factorsArray.controls; let i = index"
+            [formGroupName]="i"
+            class="factor-row mat-elevation-z1"
+          >
+            <div class="factor-index">#{{ i + 1 }}</div>
+
+            <!-- Factor Name -->
+            <mat-form-field appearance="outline" class="factor-field name-field">
+              <mat-label>Factor Name *</mat-label>
+              <input matInput formControlName="factorName" placeholder="e.g. Smoker, Diabetes, BMI">
+              <mat-error *ngIf="f.get('factorName')?.hasError('required')">Required</mat-error>
+            </mat-form-field>
+
+            <!-- Factor Value -->
+            <mat-form-field appearance="outline" class="factor-field value-field">
+              <mat-label>Reported Value *</mat-label>
+              <input matInput formControlName="factorValue" placeholder="e.g. NO, HIGH, 28.5">
+              <mat-error *ngIf="f.get('factorValue')?.hasError('required')">Required</mat-error>
+            </mat-form-field>
+
+            <!-- Description / Notes -->
+            <mat-form-field appearance="outline" class="factor-field desc-field">
+              <mat-label>Clinical / Underwriting Notes</mat-label>
+              <input matInput formControlName="description" placeholder="Additional details or severity notes">
+            </mat-form-field>
+
+            <!-- Remove Button -->
+            <div class="remove-action">
+              <button
+                mat-icon-button
+                type="button"
+                color="warn"
+                (click)="removeFactor(i)"
+                [disabled]="factorsArray.length <= 1"
+                title="Remove Factor"
+              >
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <mat-divider class="section-divider"></mat-divider>
+
+      <!-- Submit Section -->
+      <div class="form-actions-bar">
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="assessForm.invalid || isSubmitting"
+          class="submit-assess-btn"
+        >
+          <mat-spinner *ngIf="isSubmitting" diameter="20" class="btn-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isSubmitting">health_and_safety</mat-icon>
+          <span>{{ isSubmitting ? 'Recording Assessment...' : 'Create Risk Assessment' }}</span>
+        </button>
+      </div>
+    </form>
+  </mat-card>
+</div>

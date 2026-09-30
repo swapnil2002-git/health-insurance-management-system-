@@ -1,0 +1,295 @@
+<div class="plan-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Product & Plan / <span>Plans</span></div>
+      <h1>Insurance Benefit Plans</h1>
+      <p class="subtitle">Configure plan coverage tiers, benefit limits, and associated rule frameworks</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="loadPlans()" [disabled]="isLoading" class="refresh-btn">
+        <mat-icon [class.spinning]="isLoading">refresh</mat-icon>
+        <span>Refresh Plans</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Plan Details Inspection Drawer / Card (when opened) -->
+  <mat-card *ngIf="selectedPlanDetail" class="detail-card mat-elevation-z3">
+    <div class="detail-header">
+      <div class="detail-title-group">
+        <mat-icon color="primary">rule_folder</mat-icon>
+        <div>
+          <h2>{{ selectedPlanDetail.name }}</h2>
+          <span class="detail-subtitle">
+            Product: <strong>{{ selectedPlanDetail.productName }}</strong> | Plan ID: <code>{{ selectedPlanDetail.planId }}</code>
+          </span>
+        </div>
+      </div>
+      <div class="detail-actions">
+        <button mat-flat-button color="primary" (click)="goToRuleMapping(selectedPlanDetail.planId)">
+          <mat-icon>link</mat-icon>
+          <span>Map More Rules</span>
+        </button>
+        <button mat-icon-button (click)="closeDetail()" title="Close details">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+    <mat-divider></mat-divider>
+
+    <div class="rules-breakdown-grid">
+      <!-- Coverages -->
+      <div class="rule-col">
+        <div class="col-head head-coverage">
+          <mat-icon>health_and_safety</mat-icon>
+          <span>Coverages ({{ selectedPlanDetail.coverages.length || 0 }})</span>
+        </div>
+        <div class="rules-list">
+          <div *ngFor="let c of selectedPlanDetail.coverages" class="rule-chip-card">
+            <strong>{{ c.name }}</strong>
+            <span *ngIf="c.description">{{ c.description }}</span>
+          </div>
+          <div *ngIf="!selectedPlanDetail.coverages || selectedPlanDetail.coverages.length === 0" class="no-rules">
+            None mapped
+          </div>
+        </div>
+      </div>
+
+      <!-- Deductibles -->
+      <div class="rule-col">
+        <div class="col-head head-deductible">
+          <mat-icon>payments</mat-icon>
+          <span>Deductibles ({{ selectedPlanDetail.deductibles.length || 0 }})</span>
+        </div>
+        <div class="rules-list">
+          <div *ngFor="let d of selectedPlanDetail.deductibles" class="rule-chip-card">
+            <strong>{{ d.name }}</strong>
+            <span *ngIf="d.description">{{ d.description }}</span>
+          </div>
+          <div *ngIf="!selectedPlanDetail.deductibles || selectedPlanDetail.deductibles.length === 0" class="no-rules">
+            None mapped
+          </div>
+        </div>
+      </div>
+
+      <!-- Copayments -->
+      <div class="rule-col">
+        <div class="col-head head-copayment">
+          <mat-icon>price_check</mat-icon>
+          <span>Copayments ({{ selectedPlanDetail.copayments.length || 0 }})</span>
+        </div>
+        <div class="rules-list">
+          <div *ngFor="let cp of selectedPlanDetail.copayments" class="rule-chip-card">
+            <strong>{{ cp.name }}</strong>
+            <span *ngIf="cp.description">{{ cp.description }}</span>
+          </div>
+          <div *ngIf="!selectedPlanDetail.copayments || selectedPlanDetail.copayments.length === 0" class="no-rules">
+            None mapped
+          </div>
+        </div>
+      </div>
+
+      <!-- Exclusions -->
+      <div class="rule-col">
+        <div class="col-head head-exclusion">
+          <mat-icon>block</mat-icon>
+          <span>Exclusions ({{ selectedPlanDetail.exclusions.length || 0 }})</span>
+        </div>
+        <div class="rules-list">
+          <div *ngFor="let e of selectedPlanDetail.exclusions" class="rule-chip-card">
+            <strong>{{ e.name }}</strong>
+            <span *ngIf="e.description">{{ e.description }}</span>
+          </div>
+          <div *ngIf="!selectedPlanDetail.exclusions || selectedPlanDetail.exclusions.length === 0" class="no-rules">
+            None mapped
+          </div>
+        </div>
+      </div>
+
+      <!-- Riders -->
+      <div class="rule-col">
+        <div class="col-head head-rider">
+          <mat-icon>add_moderator</mat-icon>
+          <span>Riders ({{ selectedPlanDetail.riders.length || 0 }})</span>
+        </div>
+        <div class="rules-list">
+          <div *ngFor="let r of selectedPlanDetail.riders" class="rule-chip-card">
+            <strong>{{ r.name }}</strong>
+            <span *ngIf="r.description">{{ r.description }}</span>
+          </div>
+          <div *ngIf="!selectedPlanDetail.riders || selectedPlanDetail.riders.length === 0" class="no-rules">
+            None mapped
+          </div>
+        </div>
+      </div>
+    </div>
+  </mat-card>
+
+  <div class="content-grid">
+    <!-- Plans Table Card -->
+    <mat-card class="list-card mat-elevation-z2">
+      <div class="card-header-bar">
+        <div class="title-with-badge">
+          <mat-icon color="primary">view_quilt</mat-icon>
+          <h2>Insurance Plans ({{ filteredPlans.length }})</h2>
+        </div>
+
+        <!-- Filter by Product -->
+        <mat-form-field appearance="outline" class="product-filter">
+          <mat-label>Filter by Product</mat-label>
+          <mat-select [value]="selectedProductId" (selectionChange)="onFilterChange($event.value)">
+            <mat-option value="ALL">All Products</mat-option>
+            <mat-option *ngFor="let prod of products" [value]="prod.productId">
+              {{ prod.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <mat-divider></mat-divider>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoading && filteredPlans.length === 0" class="empty-state">
+        <mat-icon>layers_clear</mat-icon>
+        <p>No insurance plans found for this selection. Create a plan using the form.</p>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="isLoading" class="loading-state">
+        <mat-spinner diameter="32"></mat-spinner>
+        <span>Loading insurance plans...</span>
+      </div>
+
+      <!-- Plans Table -->
+      <div *ngIf="!isLoading && filteredPlans.length > 0" class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Plan Name</th>
+              <th>Parent Product</th>
+              <th>Description</th>
+              <th>Plan ID</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let pl of filteredPlans" [class.selected-row]="editingPlanId === pl.planId">
+              <td class="name-cell font-bold">{{ pl.name }}</td>
+              <td><span class="product-badge">{{ getProductName(pl.productId) }}</span></td>
+              <td class="desc-cell">{{ pl.description || 'No description provided' }}</td>
+              <td class="code-cell">{{ pl.planId }}</td>
+              <td class="actions-col">
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  (click)="inspectPlanDetails(pl.planId)"
+                  class="action-detail-btn"
+                  title="View plan coverages, deductibles, and rules"
+                >
+                  <mat-icon>visibility</mat-icon>
+                  <span>Details</span>
+                </button>
+                <button
+                  mat-stroked-button
+                  color="accent"
+                  (click)="goToRuleMapping(pl.planId)"
+                  class="action-map-btn"
+                  title="Map master rules to this plan"
+                >
+                  <mat-icon>link</mat-icon>
+                  <span>Map Rules</span>
+                </button>
+                <button
+                  mat-icon-button
+                  color="primary"
+                  (click)="startEdit(pl)"
+                  title="Edit Plan"
+                >
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card>
+
+    <!-- Create or Edit Plan Form Card -->
+    <mat-card class="form-card mat-elevation-z2" [class.edit-mode]="isEditing">
+      <div class="card-title-row">
+        <mat-icon color="primary">{{ isEditing ? 'edit_note' : 'post_add' }}</mat-icon>
+        <h2>{{ isEditing ? 'Edit Insurance Plan' : 'Create Insurance Plan' }}</h2>
+      </div>
+      <mat-divider></mat-divider>
+
+      <form [formGroup]="planForm" (ngSubmit)="onSubmit()" class="plan-form">
+        <!-- Product Selection -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Parent Insurance Product *</mat-label>
+          <mat-select formControlName="productId">
+            <mat-option *ngFor="let prod of products" [value]="prod.productId">
+              {{ prod.name }} ({{ prod.productId }})
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="productControl?.hasError('required')">Parent product is required</mat-error>
+        </mat-form-field>
+
+        <!-- Plan Name -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Plan Name *</mat-label>
+          <input matInput formControlName="name" placeholder="e.g. Gold Tier - 5 Lakh Cover">
+          <mat-icon matPrefix class="field-icon">verified</mat-icon>
+          <mat-error *ngIf="nameControl?.hasError('required')">Plan name is required</mat-error>
+        </mat-form-field>
+
+        <!-- Description -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Plan Description</mat-label>
+          <textarea
+            matInput
+            formControlName="description"
+            rows="3"
+            placeholder="e.g. Comprehensive family coverage including AYUSH, pre-existing diseases after 2 years..."
+          ></textarea>
+        </mat-form-field>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="planForm.invalid || isSubmitting"
+            class="submit-btn"
+          >
+            <mat-spinner *ngIf="isSubmitting" diameter="18" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isSubmitting">{{ isEditing ? 'check_circle' : 'add' }}</mat-icon>
+            <span>{{ isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Plan') }}</span>
+          </button>
+
+          <button
+            *ngIf="isEditing"
+            mat-stroked-button
+            type="button"
+            (click)="cancelEdit()"
+            [disabled]="isSubmitting"
+          >
+            <mat-icon>cancel</mat-icon>
+            <span>Cancel</span>
+          </button>
+
+          <button
+            *ngIf="!isEditing"
+            mat-stroked-button
+            type="button"
+            (click)="planForm.reset()"
+            [disabled]="isSubmitting"
+          >
+            <mat-icon>refresh</mat-icon>
+            <span>Reset</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+  </div>
+</div>

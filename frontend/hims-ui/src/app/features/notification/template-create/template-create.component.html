@@ -1,0 +1,158 @@
+<div class="template-create-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <button mat-icon-button (click)="cancel()">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div>
+        <h1 class="page-title">{{ isEditMode ? 'Edit Notification Template' : 'Create Notification Template' }}</h1>
+        <p class="page-subtitle">Configure message body, subject, and dynamic placeholders for automated notifications</p>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="40"></mat-spinner>
+    <span>Loading template details...</span>
+  </div>
+
+  <div class="content-layout" *ngIf="!isLoading">
+    <!-- Form Card -->
+    <mat-card class="form-card mat-elevation-z2">
+      <form [formGroup]="templateForm" (ngSubmit)="onSubmit()">
+        <!-- Event Type -->
+        <div class="form-section">
+          <h3>Event Trigger</h3>
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Business Event Type</mat-label>
+            <input matInput formControlName="eventType" placeholder="e.g. POLICY_ISSUED, CLAIM_APPROVED" />
+            <mat-error *ngIf="templateForm.get('eventType')?.hasError('required')">
+              Event type is required.
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Quick Select Event Chips -->
+          <div class="quick-chips">
+            <span class="chips-label">Common Events:</span>
+            <button
+              type="button"
+              class="event-chip"
+              *ngFor="let ev of commonEventTypes"
+              (click)="selectEventType(ev)"
+            >
+              {{ ev }}
+            </button>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- Channel & Status -->
+        <div class="form-section">
+          <h3>Channel & Status</h3>
+          <div class="row-2">
+            <mat-form-field appearance="outline">
+              <mat-label>Delivery Channel</mat-label>
+              <mat-select formControlName="channel">
+                <mat-option *ngFor="let ch of channels" [value]="ch.value">
+                  <div class="select-option">
+                    <mat-icon>{{ ch.icon }}</mat-icon>
+                    <span>{{ ch.label }}</span>
+                  </div>
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Template Status</mat-label>
+              <mat-select formControlName="status">
+                <mat-option value="ACTIVE">ACTIVE (Ready for delivery)</mat-option>
+                <mat-option value="INACTIVE">INACTIVE (Disabled)</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- Subject & Body Template -->
+        <div class="form-section">
+          <h3>Message Content</h3>
+
+          <!-- Subject Template (shown especially for Email) -->
+          <mat-form-field appearance="outline" class="w-100" *ngIf="templateForm.get('channel')?.value === 'EMAIL'">
+            <mat-label>Subject Line Template</mat-label>
+            <input matInput formControlName="subjectTemplate" placeholder="e.g. Policy #{policyNumber} Issued" />
+            <mat-hint>Supports dynamic placeholders like &#123;policyNumber&#125;</mat-hint>
+          </mat-form-field>
+
+          <!-- Body Template -->
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Body Template</mat-label>
+            <textarea
+              matInput
+              rows="6"
+              formControlName="bodyTemplate"
+              placeholder="e.g. Dear {customerName}, your claim #{claimNumber} has been approved for {approvedAmount}."
+            ></textarea>
+            <mat-error *ngIf="templateForm.get('bodyTemplate')?.hasError('required')">
+              Body template is required.
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Dynamic Placeholder Helpers -->
+          <div class="placeholder-tools">
+            <span class="tool-label">Click to insert placeholder into Body:</span>
+            <div class="placeholder-chips">
+              <button
+                type="button"
+                class="ph-chip"
+                *ngFor="let ph of commonPlaceholders"
+                (click)="insertPlaceholder(ph.code, 'bodyTemplate')"
+              >
+                <span class="ph-code">{{ ph.code }}</span>
+                <span class="ph-name">({{ ph.label }})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="card-footer-actions">
+          <button mat-button type="button" (click)="cancel()" [disabled]="isSubmitting">Cancel</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="templateForm.invalid || isSubmitting">
+            <mat-spinner diameter="18" *ngIf="isSubmitting"></mat-spinner>
+            <mat-icon *ngIf="!isSubmitting">save</mat-icon>
+            <span>{{ isEditMode ? 'Update Template' : 'Save Template' }}</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+
+    <!-- Live Preview Card -->
+    <mat-card class="preview-card mat-elevation-z2">
+      <div class="preview-header">
+        <mat-icon>preview</mat-icon>
+        <h3>Live Render Preview</h3>
+      </div>
+      <p class="preview-hint">Sample rendering with mocked test placeholder data</p>
+
+      <div class="preview-box">
+        <div class="preview-subject" *ngIf="templateForm.get('channel')?.value === 'EMAIL'">
+          <span class="ps-lbl">Subject:</span>
+          <span class="ps-val">{{ getLiveRenderedPreview().subject || '(No subject provided)' }}</span>
+        </div>
+
+        <div class="preview-body">
+          <p>{{ getLiveRenderedPreview().body || '(Type your message body template to preview...)' }}</p>
+        </div>
+
+        <div class="preview-meta">
+          <span>Channel: <strong>{{ templateForm.get('channel')?.value }}</strong></span>
+          <span>Status: <strong>{{ templateForm.get('status')?.value }}</strong></span>
+        </div>
+      </div>
+    </mat-card>
+  </div>
+</div>

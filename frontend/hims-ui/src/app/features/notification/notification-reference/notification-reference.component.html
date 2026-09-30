@@ -1,0 +1,114 @@
+<div class="notification-reference-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-icon">
+        <mat-icon>history_edu</mat-icon>
+      </div>
+      <div>
+        <h1 class="page-title">Notification Audit History</h1>
+        <p class="page-subtitle">Track multi-channel communication records by business reference UUID or recipient identity</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button color="accent" routerLink="/notifications/send">
+        <mat-icon>send</mat-icon>
+        <span>Dispatch Notification</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search Card with Type Selector -->
+  <mat-card class="search-card mat-elevation-z1">
+    <div class="search-type-bar">
+      <button
+        type="button"
+        class="type-btn"
+        [class.active]="searchType === 'REFERENCE_ID'"
+        (click)="onSearchTypeChange('REFERENCE_ID')"
+      >
+        <mat-icon>link</mat-icon>
+        <span>By Business Reference ID (Claim/Policy UUID)</span>
+      </button>
+      <button
+        type="button"
+        class="type-btn"
+        [class.active]="searchType === 'RECIPIENT'"
+        (click)="onSearchTypeChange('RECIPIENT')"
+      >
+        <mat-icon>contact_mail</mat-icon>
+        <span>By Recipient (Email / Phone)</span>
+      </button>
+    </div>
+
+    <form [formGroup]="searchForm" (ngSubmit)="onSearch()" class="search-form">
+      <mat-form-field appearance="outline" class="search-input">
+        <mat-label>
+          {{ searchType === 'REFERENCE_ID' ? 'Enter Reference UUID (e.g. 47fe1e26-...)' : 'Enter Recipient Email or Phone' }}
+        </mat-label>
+        <mat-icon matPrefix>{{ searchType === 'REFERENCE_ID' ? 'fingerprint' : 'email' }}</mat-icon>
+        <input
+          matInput
+          formControlName="searchTerm"
+          [placeholder]="searchType === 'REFERENCE_ID' ? 'e.g. 47fe1e26-91ad-4e5e-bed0-dc8b19908551' : 'e.g. customer@example.com'"
+        />
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="searchForm.invalid || isLoading">
+        <mat-spinner diameter="18" *ngIf="isLoading"></mat-spinner>
+        <mat-icon *ngIf="!isLoading">search</mat-icon>
+        <span>Search Audit Log</span>
+      </button>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="40"></mat-spinner>
+    <span>Querying notification delivery logs...</span>
+  </div>
+
+  <!-- Result Timeline / Table -->
+  <div class="results-area" *ngIf="!isLoading && notifications.length > 0">
+    <div class="results-header">
+      <h3>
+        Found {{ notifications.length }} Notification(s)
+        <span class="query-tag">for {{ searchedTerm }}</span>
+      </h3>
+    </div>
+
+    <div class="notification-timeline">
+      <mat-card class="timeline-item-card mat-elevation-z1" *ngFor="let item of notifications">
+        <div class="item-header">
+          <div class="item-left">
+            <span class="channel-pill channel-{{ item.channel | lowercase }}">
+              <mat-icon class="pill-icon">{{ getChannelIcon(item.channel) }}</mat-icon>
+              {{ item.channel }}
+            </span>
+            <span class="event-pill" *ngIf="item.eventType">{{ item.eventType }}</span>
+            <span class="recip-label">To: <strong>{{ item.recipient }}</strong></span>
+          </div>
+
+          <div class="item-right">
+            <span class="status-pill status-{{ item.status | lowercase }}">{{ item.status }}</span>
+            <span class="timestamp">{{ item.createdAt | date:'medium' }}</span>
+          </div>
+        </div>
+
+        <div class="item-body">
+          <div class="subject-line" *ngIf="item.subject">
+            <strong>Subject:</strong> {{ item.subject }}
+          </div>
+          <p class="content-preview">{{ item.content }}</p>
+        </div>
+
+        <div class="item-footer">
+          <span class="code-font id-text">UUID: {{ item.notificationId }}</span>
+          <button mat-button color="primary" (click)="viewDetails(item.notificationId)">
+            <mat-icon>open_in_new</mat-icon>
+            <span>Full Details</span>
+          </button>
+        </div>
+      </mat-card>
+    </div>
+  </div>
+</div>

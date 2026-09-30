@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -97,6 +98,15 @@ public class PremiumServiceImpl implements PremiumService {
         log.info("Fetching premium schedule for policy ID: {}", policyId);
         PremiumSchedule schedule = scheduleRepository.findByPolicyId(policyId)
                 .orElseThrow(() -> new PremiumScheduleNotFoundException("Premium schedule not found for policy ID: " + policyId));
+        return mapper.toResponse(schedule);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PremiumScheduleResponse getScheduleById(UUID scheduleId) {
+        log.info("Fetching premium schedule by schedule ID: {}", scheduleId);
+        PremiumSchedule schedule = scheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new PremiumScheduleNotFoundException("Premium schedule not found for schedule ID: " + scheduleId));
         return mapper.toResponse(schedule);
     }
 
@@ -225,5 +235,15 @@ public class PremiumServiceImpl implements PremiumService {
                 schedule.getScheduleId(), schedule.getPaidAmount(), schedule.getOutstandingAmount(), schedule.getPremiumStatus());
 
         return mapper.toInstallmentResponse(savedInstallment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PremiumScheduleResponse> getAllSchedules() {
+        log.info("Fetching all premium schedules");
+        return scheduleRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
+                .stream()
+                .map(mapper::toResponse)
+                .collect(Collectors.toList());
     }
 }

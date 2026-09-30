@@ -1,0 +1,330 @@
+<div class="customer-page">
+  <!-- Centered Popup Feedback Modal -->
+  <div *ngIf="modalData" class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-container mat-elevation-z8" (click)="$event.stopPropagation()">
+      <!-- Close cross mark in top-right corner -->
+      <button mat-icon-button class="modal-close-btn" (click)="closeModal()" title="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+
+      <div class="modal-header">
+        <div class="modal-icon-circle" [ngClass]="modalData.type">
+          <mat-icon>{{ modalData.type === 'success' ? 'check_circle' : 'error' }}</mat-icon>
+        </div>
+        <h2 class="modal-title">{{ modalData.title }}</h2>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-message">{{ modalData.message }}</p>
+
+        <!-- Generated Customer ID Card (for success) -->
+        <div *ngIf="modalData.customerId" class="customer-id-card">
+          <span class="id-label">Assigned Customer ID (UUID)</span>
+          <div class="id-value-row">
+            <span class="id-code">{{ modalData.customerId }}</span>
+            <button
+              mat-icon-button
+              type="button"
+              class="copy-btn"
+              (click)="copyCustomerId()"
+              [title]="modalData.copySuccess ? 'Copied!' : 'Copy Customer ID to clipboard'"
+            >
+              <mat-icon>{{ modalData.copySuccess ? 'done' : 'content_copy' }}</mat-icon>
+            </button>
+          </div>
+          <span *ngIf="modalData.copySuccess" class="copy-hint">✓ Copied to clipboard!</span>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button mat-flat-button color="primary" class="modal-ok-btn" (click)="closeModal()">
+          <mat-icon>check</mat-icon>
+          <span>OK</span>
+        </button>
+
+        <a
+          *ngIf="modalData.type === 'success' && modalData.customerId"
+          mat-stroked-button
+          color="accent"
+          [routerLink]="['/quotes/create']"
+          [queryParams]="{ customerId: modalData.customerId }"
+          (click)="closeModal()"
+          class="modal-secondary-btn"
+          title="Proceed to create insurance quotation for this customer"
+        >
+          <mat-icon>receipt</mat-icon>
+          <span>Create Quote</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Customer / <span>Personal Information</span></div>
+      <h1>Customer Profile & Personal Details</h1>
+      <p class="subtitle">Enroll new customers or search, inspect, and update existing customer records</p>
+    </div>
+  </div>
+
+  <!-- Search & Lookup Bar -->
+  <mat-card class="search-card mat-elevation-z2">
+    <div class="search-row">
+      <mat-form-field appearance="outline" class="search-input">
+        <mat-label>Customer ID (UUID) *</mat-label>
+        <input
+          matInput
+          [(ngModel)]="searchId"
+          maxlength="64"
+          placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
+          (keyup.enter)="onSearch()"
+        >
+        <mat-icon matPrefix class="field-icon">search</mat-icon>
+        <mat-hint>Enter customer UUID to lookup and set active customer context</mat-hint>
+      </mat-form-field>
+
+      <div class="search-actions">
+        <button
+          mat-flat-button
+          color="primary"
+          (click)="onSearch()"
+          [disabled]="isSearching || !searchId.trim()"
+          class="search-btn"
+        >
+          <mat-spinner *ngIf="isSearching" diameter="18" class="btn-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isSearching">person_search</mat-icon>
+          <span>{{ isSearching ? 'Searching...' : 'Lookup Customer' }}</span>
+        </button>
+
+        <button
+          *ngIf="currentCustomer"
+          mat-stroked-button
+          color="accent"
+          (click)="refreshCustomer(true)"
+          [disabled]="isRefreshing"
+          class="refresh-btn"
+          title="Reload latest customer data from server"
+        >
+          <mat-icon [class.spinning]="isRefreshing">refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+
+        <button
+          *ngIf="currentCustomer || searchId"
+          mat-stroked-button
+          color="warn"
+          (click)="clearCustomer(formDirective)"
+          class="clear-btn"
+          title="Clear current customer selection to enroll a new customer"
+        >
+          <mat-icon>person_add_disabled</mat-icon>
+          <span>Clear / New</span>
+        </button>
+      </div>
+    </div>
+  </mat-card>
+
+  <div class="content-grid">
+    <!-- Active Customer Profile Card (if found) -->
+    <mat-card *ngIf="currentCustomer" class="profile-card mat-elevation-z2">
+      <div class="card-title-row">
+        <div class="profile-title">
+          <mat-icon color="primary">account_box</mat-icon>
+          <h2>{{ currentCustomer.firstName }} {{ currentCustomer.lastName }}</h2>
+        </div>
+        <div class="profile-header-actions">
+          <span class="status-badge" [class.badge-active]="currentCustomer.status === 'ACTIVE'">
+            {{ currentCustomer.status || 'ACTIVE' }}
+          </span>
+          <button
+            mat-icon-button
+            (click)="refreshCustomer(true)"
+            [disabled]="isRefreshing"
+            title="Refresh customer record"
+          >
+            <mat-icon [class.spinning]="isRefreshing">refresh</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            color="warn"
+            (click)="clearCustomer(formDirective)"
+            title="Clear customer selection"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="detail-label">Customer ID</span>
+          <span class="detail-value code-value">{{ currentCustomer.customerId }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Identification No.</span>
+          <span class="detail-value font-bold">{{ currentCustomer.identificationNumber }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Date of Birth</span>
+          <span class="detail-value">{{ currentCustomer.dateOfBirth | date:'longDate' }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Gender</span>
+          <span class="detail-value">{{ currentCustomer.gender }}</span>
+        </div>
+      </div>
+
+      <mat-divider class="my-3"></mat-divider>
+
+      <!-- Customer Submodule Quick Links -->
+      <div class="submodule-links">
+        <span class="links-title">Related Customer Domains:</span>
+        <div class="links-row">
+          <a mat-stroked-button routerLink="/customers/members">
+            <mat-icon>group</mat-icon>
+            <span>Members</span>
+          </a>
+          <a mat-stroked-button routerLink="/customers/addresses">
+            <mat-icon>home</mat-icon>
+            <span>Addresses</span>
+          </a>
+          <a mat-stroked-button routerLink="/customers/contacts">
+            <mat-icon>contact_phone</mat-icon>
+            <span>Contacts</span>
+          </a>
+          <a mat-stroked-button routerLink="/customers/beneficiaries">
+            <mat-icon>volunteer_activism</mat-icon>
+            <span>Beneficiaries</span>
+          </a>
+          <a mat-stroked-button routerLink="/customers/nominees">
+            <mat-icon>family_restroom</mat-icon>
+            <span>Nominees</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="profile-actions">
+        <a
+          mat-flat-button
+          color="primary"
+          [routerLink]="['/quotes/create']"
+          [queryParams]="{ customerId: currentCustomer.customerId }"
+          class="quote-shortcut-btn"
+          title="Create insurance quotation for this customer"
+        >
+          <mat-icon>calculate</mat-icon>
+          <span>Create Quotation</span>
+        </a>
+
+        <button mat-stroked-button color="accent" (click)="startEdit()" [disabled]="isEditMode">
+          <mat-icon>edit</mat-icon>
+          <span>Edit Details</span>
+        </button>
+      </div>
+    </mat-card>
+
+    <!-- Create or Edit Customer Form -->
+    <mat-card class="form-card mat-elevation-z2" [class.edit-highlight]="isEditMode">
+      <div class="card-title-row">
+        <mat-icon color="primary">{{ isEditMode ? 'edit_note' : 'person_add' }}</mat-icon>
+        <h2>{{ isEditMode ? 'Update Customer Details' : 'Register New Customer' }}</h2>
+      </div>
+      <mat-divider></mat-divider>
+
+      <form [formGroup]="customerForm" #formDirective="ngForm" (ngSubmit)="onSubmit(formDirective)" class="customer-form">
+        <div class="form-row-2">
+          <!-- First Name -->
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>First Name *</mat-label>
+            <input matInput formControlName="firstName" maxlength="50" placeholder="e.g. John">
+            <mat-error *ngIf="firstNameControl?.hasError('required')">First name is required</mat-error>
+            <mat-error *ngIf="firstNameControl?.hasError('minlength')">First name must be at least 2 characters</mat-error>
+            <mat-error *ngIf="firstNameControl?.hasError('maxlength')">First name cannot exceed 50 characters</mat-error>
+            <mat-error *ngIf="firstNameControl?.hasError('pattern')">First name must contain only letters, spaces, or hyphens</mat-error>
+          </mat-form-field>
+
+          <!-- Last Name -->
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Last Name *</mat-label>
+            <input matInput formControlName="lastName" maxlength="50" placeholder="e.g. Doe">
+            <mat-error *ngIf="lastNameControl?.hasError('required')">Last name is required</mat-error>
+            <mat-error *ngIf="lastNameControl?.hasError('minlength')">Last name must be at least 2 characters</mat-error>
+            <mat-error *ngIf="lastNameControl?.hasError('maxlength')">Last name cannot exceed 50 characters</mat-error>
+            <mat-error *ngIf="lastNameControl?.hasError('pattern')">Last name must contain only letters, spaces, or hyphens</mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row-2">
+          <!-- Date of Birth -->
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Date of Birth *</mat-label>
+            <input matInput type="date" formControlName="dateOfBirth">
+            <mat-error *ngIf="dobControl?.hasError('required')">Date of birth is required</mat-error>
+          </mat-form-field>
+
+          <!-- Gender -->
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Gender *</mat-label>
+            <mat-select formControlName="gender">
+              <mat-option *ngFor="let g of genders" [value]="g.value">{{ g.label }}</mat-option>
+            </mat-select>
+            <mat-error *ngIf="genderControl?.hasError('required')">Gender is required</mat-error>
+          </mat-form-field>
+        </div>
+
+        <!-- Identification Number -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Identification Number (SSN / National ID) *</mat-label>
+          <input matInput formControlName="identificationNumber" maxlength="30" placeholder="e.g. ID-89472910">
+          <mat-icon matPrefix class="field-icon">badge</mat-icon>
+          <mat-error *ngIf="idNumberControl?.hasError('required')">Identification number is required</mat-error>
+          <mat-error *ngIf="idNumberControl?.hasError('minlength')">Identification number must be at least 4 characters</mat-error>
+          <mat-error *ngIf="idNumberControl?.hasError('maxlength')">Identification number cannot exceed 30 characters</mat-error>
+          <mat-error *ngIf="idNumberControl?.hasError('pattern')">Identification number must be alphanumeric (hyphens/underscores allowed)</mat-error>
+        </mat-form-field>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="customerForm.invalid || isSubmitting"
+            class="submit-btn"
+          >
+            <mat-spinner *ngIf="isSubmitting" diameter="18" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isSubmitting">{{ isEditMode ? 'check_circle' : 'save' }}</mat-icon>
+            <span>{{ isSubmitting ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Create Customer') }}</span>
+          </button>
+
+          <button
+            *ngIf="isEditMode"
+            mat-stroked-button
+            type="button"
+            (click)="cancelEdit(formDirective)"
+            [disabled]="isSubmitting"
+          >
+            <mat-icon>close</mat-icon>
+            <span>Cancel Edit</span>
+          </button>
+
+          <button
+            *ngIf="!isEditMode"
+            mat-stroked-button
+            type="button"
+            (click)="resetForm(formDirective)"
+            [disabled]="isSubmitting"
+          >
+            <mat-icon>refresh</mat-icon>
+            <span>Reset</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+  </div>
+</div>

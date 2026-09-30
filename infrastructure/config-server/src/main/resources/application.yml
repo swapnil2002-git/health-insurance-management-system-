@@ -4,9 +4,14 @@ server:
 spring:
   application:
     name: config-server
+  profiles:
+    active: native
   cloud:
     config:
       server:
-        git:
-          uri: file:///C:/Users/Mudgade/.gemini/antigravity/scratch/health-insurance-management-system
-          search-paths: config-repo
+        native:
+          search-locations:
+            - file:./config-repo
+            - file:../config-repo
+            - file:../../config-repo
+            - file:///C:/Users/Mudgade/.gemini/antigravity/scratch/health-insurance-management-system/config-repo

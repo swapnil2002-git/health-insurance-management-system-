@@ -1,0 +1,470 @@
+<div class="view-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Policy Management / <span>Policy Dossier</span></div>
+      <h1>Policy Contract Dossier</h1>
+      <p class="subtitle">Complete audit view of coverage terms, enrolled members, endorsements, renewals, and cancellation state</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToPolicies()" class="action-btn">
+        <mat-icon>arrow_back</mat-icon>
+        <span>All Policies</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search Bar -->
+  <mat-card class="search-card mat-elevation-z2">
+    <form (ngSubmit)="onSearch()" class="search-form">
+      <mat-icon class="search-icon">search</mat-icon>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search Policy by ID (UUID)</mat-label>
+        <input matInput [(ngModel)]="policyIdInput" name="policyIdInput" placeholder="e.g. 48588521-75a0-496f-bcf9-05b1a69549e9">
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!policyIdInput || isLoading" class="search-btn">
+        <mat-icon [class.spinning]="isLoading">search</mat-icon>
+        <span>Search</span>
+      </button>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading policy contract...</span>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && !policy" class="empty-state">
+    <mat-icon>content_paste_search</mat-icon>
+    <p>No policy loaded. Enter a Policy UUID above or select one from the All Policies list.</p>
+  </div>
+
+  <!-- Policy Dossier Loaded -->
+  <div *ngIf="!isLoading && policy" class="dossier-container">
+    <!-- Header Card -->
+    <mat-card class="dossier-header-card mat-elevation-z2">
+      <div class="header-top-row">
+        <div class="policy-id-block">
+          <div class="icon-avatar">
+            <mat-icon>verified_user</mat-icon>
+          </div>
+          <div>
+            <div class="title-with-badge">
+              <h2>{{ policy.policyNumber || 'POL-DRAFT' }}</h2>
+              <span class="status-badge status-{{ policy.status | lowercase }}">{{ policy.status }}</span>
+            </div>
+            <span class="sub-text">UUID: {{ policy.policyId }} | Enrolled: {{ policy.createdAt | date:'medium' }}</span>
+          </div>
+        </div>
+
+        <!-- Quick Lifecycle Actions -->
+        <div class="quick-actions">
+          <!-- Issue (if DRAFT) -->
+          <button
+            *ngIf="policy.status === 'DRAFT'"
+            mat-flat-button
+            color="primary"
+            [disabled]="isActionLoading"
+            (click)="onIssue()"
+          >
+            <mat-icon>send</mat-icon>
+            <span>Issue Policy</span>
+          </button>
+
+          <!-- Activate (if PENDING_PAYMENT) -->
+          <button
+            *ngIf="policy.status === 'PENDING_PAYMENT'"
+            mat-flat-button
+            class="btn-activate"
+            [disabled]="isActionLoading"
+            (click)="onActivate()"
+          >
+            <mat-icon>check_circle</mat-icon>
+            <span>Activate Policy</span>
+          </button>
+
+          <!-- Endorse (if ACTIVE) -->
+          <button
+            *ngIf="policy.status === 'ACTIVE'"
+            mat-stroked-button
+            (click)="goToEndorse()"
+          >
+            <mat-icon>edit_calendar</mat-icon>
+            <span>Endorse</span>
+          </button>
+
+          <!-- Renew (if ACTIVE or EXPIRED) -->
+          <button
+            *ngIf="policy.status === 'ACTIVE' || policy.status === 'EXPIRED'"
+            mat-stroked-button
+            color="accent"
+            (click)="goToRenew()"
+          >
+            <mat-icon>autorenew</mat-icon>
+            <span>Renew</span>
+          </button>
+
+          <!-- Cancel (if ACTIVE) -->
+          <button
+            *ngIf="policy.status === 'ACTIVE'"
+            mat-stroked-button
+            color="warn"
+            (click)="goToCancel()"
+          >
+            <mat-icon>cancel</mat-icon>
+            <span>Cancel</span>
+          </button>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <!-- Linked References Grid -->
+      <div class="references-grid">
+        <div class="ref-card">
+          <div class="ref-icon cust"><mat-icon>person</mat-icon></div>
+          <div class="ref-info">
+            <span class="ref-label">Customer ID</span>
+            <span class="ref-value">{{ policy.customerId }}</span>
+          </div>
+          <button mat-icon-button (click)="copyToClipboard(policy.customerId, 'Customer ID')" matTooltip="Copy ID">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+
+        <div class="ref-card">
+          <div class="ref-icon quote"><mat-icon>request_quote</mat-icon></div>
+          <div class="ref-info">
+            <span class="ref-label">Quote ID</span>
+            <span class="ref-value">{{ policy.quoteId }}</span>
+          </div>
+          <button mat-icon-button (click)="copyToClipboard(policy.quoteId, 'Quote ID')" matTooltip="Copy ID">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+
+        <div class="ref-card">
+          <div class="ref-icon plan"><mat-icon>category</mat-icon></div>
+          <div class="ref-info">
+            <span class="ref-label">Product Plan ID</span>
+            <span class="ref-value">{{ policy.planId }}</span>
+          </div>
+          <button mat-icon-button (click)="copyToClipboard(policy.planId, 'Plan ID')" matTooltip="Copy ID">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+
+        <div class="ref-card">
+          <div class="ref-icon term"><mat-icon>date_range</mat-icon></div>
+          <div class="ref-info">
+            <span class="ref-label">Coverage Period</span>
+            <span class="ref-value">{{ (policy.effectiveDate | date:'mediumDate') }} to {{ (policy.expiryDate | date:'mediumDate') }}</span>
+          </div>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Sub-navigation tabs -->
+    <div class="section-tabs">
+      <button
+        type="button"
+        class="s-tab"
+        [class.active]="activeSection === 'details'"
+        (click)="activeSection = 'details'"
+      >
+        <mat-icon>groups</mat-icon>
+        <span>Members & Coverages</span>
+      </button>
+
+      <button
+        type="button"
+        class="s-tab"
+        [class.active]="activeSection === 'endorsements'"
+        (click)="activeSection = 'endorsements'"
+      >
+        <mat-icon>edit_note</mat-icon>
+        <span>Endorsements ({{ endorsements.length }})</span>
+      </button>
+
+      <button
+        type="button"
+        class="s-tab"
+        [class.active]="activeSection === 'renewals'"
+        (click)="activeSection = 'renewals'"
+      >
+        <mat-icon>autorenew</mat-icon>
+        <span>Renewals ({{ renewals.length }})</span>
+      </button>
+
+      <button
+        type="button"
+        class="s-tab"
+        [class.active]="activeSection === 'cancellation'"
+        (click)="activeSection = 'cancellation'"
+      >
+        <mat-icon>cancel</mat-icon>
+        <span>Cancellation</span>
+      </button>
+    </div>
+
+    <!-- SECTION 1: DETAILS (MEMBERS, COVERAGES, BENEFICIARIES) -->
+    <div *ngIf="activeSection === 'details'" class="section-content">
+      <!-- Members Card -->
+      <mat-card class="sub-card mat-elevation-z2">
+        <div class="card-head-row">
+          <div class="title-with-badge">
+            <mat-icon color="primary">people</mat-icon>
+            <h3>Enrolled Policy Members</h3>
+          </div>
+          <span class="counter-badge">{{ (policy.members.length || 0) }} Member(s)</span>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div *ngIf="!policy.members || policy.members.length === 0" class="empty-list-notice">
+          <p>No individual members listed on this policy record.</p>
+        </div>
+
+        <div *ngIf="policy.members && policy.members.length > 0" class="table-responsive">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Policy Member ID</th>
+                <th>Customer Member ID (UUID)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let m of policy.members; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td><code class="code-cell">{{ m.policyMemberId }}</code></td>
+                <td><code class="code-cell bold-code">{{ m.memberId }}</code></td>
+                <td>
+                  <button mat-icon-button (click)="copyToClipboard(m.memberId, 'Member ID')">
+                    <mat-icon>content_copy</mat-icon>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </mat-card>
+
+      <!-- Coverages Card -->
+      <mat-card class="sub-card mat-elevation-z2">
+        <div class="card-head-row">
+          <div class="title-with-badge">
+            <mat-icon color="primary">health_and_safety</mat-icon>
+            <h3>Policy Coverages & Limits</h3>
+          </div>
+          <span class="counter-badge">{{ (policy.coverages.length || 0) }} Coverage Item(s)</span>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div *ngIf="!policy.coverages || policy.coverages.length === 0" class="empty-list-notice">
+          <p>Standard Comprehensive Coverage rules apply.</p>
+        </div>
+
+        <div *ngIf="policy.coverages && policy.coverages.length > 0" class="table-responsive">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Coverage Name</th>
+                <th>Coverage Amount (Sum Insured)</th>
+                <th>Deductible</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of policy.coverages; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td class="font-bold">{{ c.coverageName }}</td>
+                <td class="amount-cell">{{ c.coverageAmount | currency:'USD':'symbol':'1.2-2' }}</td>
+                <td>{{ c.deductible | currency:'USD':'symbol':'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </mat-card>
+
+      <!-- Beneficiaries Card -->
+      <mat-card class="sub-card mat-elevation-z2" *ngIf="policy.beneficiaries && policy.beneficiaries.length > 0">
+        <div class="card-head-row">
+          <div class="title-with-badge">
+            <mat-icon color="primary">family_restroom</mat-icon>
+            <h3>Designated Beneficiaries</h3>
+          </div>
+          <span class="counter-badge">{{ policy.beneficiaries.length }} Beneficiary(ies)</span>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div class="table-responsive">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Beneficiary Name</th>
+                <th>Relationship</th>
+                <th>Share Percentage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let b of policy.beneficiaries; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td class="font-bold">{{ b.beneficiaryName }}</td>
+                <td>{{ b.relationship }}</td>
+                <td><strong>{{ b.percentage }}%</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- SECTION 2: ENDORSEMENTS -->
+    <div *ngIf="activeSection === 'endorsements'" class="section-content">
+      <mat-card class="sub-card mat-elevation-z2">
+        <div class="card-head-row">
+          <div class="title-with-badge">
+            <mat-icon color="primary">edit_calendar</mat-icon>
+            <h3>Policy Endorsements Audit Trail</h3>
+          </div>
+          <button mat-stroked-button color="primary" (click)="goToEndorse()">
+            <mat-icon>add</mat-icon>
+            <span>Request Endorsement</span>
+          </button>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div *ngIf="endorsements.length === 0" class="empty-list-notice">
+          <mat-icon>info</mat-icon>
+          <p>No endorsement changes have been registered on this policy.</p>
+        </div>
+
+        <div *ngIf="endorsements.length > 0" class="table-responsive">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Description</th>
+                <th>Revised Premium</th>
+                <th>Requested By</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let e of endorsements">
+                <td><span class="font-bold">{{ e.endorsementType }}</span></td>
+                <td><span class="status-badge status-{{ e.status | lowercase }}">{{ e.status }}</span></td>
+                <td>{{ e.description }}</td>
+                <td>{{ e.revisedPremium ? (e.revisedPremium | currency:'USD') : '—' }}</td>
+                <td>{{ e.requestedBy || 'N/A' }}</td>
+                <td>{{ e.createdAt | date:'medium' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- SECTION 3: RENEWALS -->
+    <div *ngIf="activeSection === 'renewals'" class="section-content">
+      <mat-card class="sub-card mat-elevation-z2">
+        <div class="card-head-row">
+          <div class="title-with-badge">
+            <mat-icon color="accent">autorenew</mat-icon>
+            <h3>Policy Renewals History</h3>
+          </div>
+          <button mat-stroked-button color="accent" (click)="goToRenew()">
+            <mat-icon>play_arrow</mat-icon>
+            <span>Renew Policy</span>
+          </button>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div *ngIf="renewals.length === 0" class="empty-list-notice">
+          <mat-icon>info</mat-icon>
+          <p>No renewals generated for this policy term yet.</p>
+        </div>
+
+        <div *ngIf="renewals.length > 0" class="table-responsive">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Renewal ID</th>
+                <th>Status</th>
+                <th>Renewal Premium</th>
+                <th>New Effective Date</th>
+                <th>New Expiry Date</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of renewals">
+                <td><code class="code-cell">{{ r.renewalId }}</code></td>
+                <td><span class="status-badge status-{{ r.status | lowercase }}">{{ r.status }}</span></td>
+                <td class="amount-cell">{{ r.renewalPremium ? (r.renewalPremium | currency:'USD') : 'Pending Calculation' }}</td>
+                <td>{{ r.newEffectiveDate | date:'mediumDate' }}</td>
+                <td>{{ r.newExpiryDate | date:'mediumDate' }}</td>
+                <td>{{ r.createdAt | date:'medium' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- SECTION 4: CANCELLATION -->
+    <div *ngIf="activeSection === 'cancellation'" class="section-content">
+      <mat-card class="sub-card mat-elevation-z2">
+        <div class="card-head-row">
+          <div class="title-with-badge">
+            <mat-icon color="warn">cancel</mat-icon>
+            <h3>Policy Cancellation Record</h3>
+          </div>
+          <button
+            *ngIf="!cancellation && policy.status === 'ACTIVE'"
+            mat-stroked-button
+            color="warn"
+            (click)="goToCancel()"
+          >
+            <mat-icon>cancel</mat-icon>
+            <span>Request Cancellation</span>
+          </button>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div *ngIf="!cancellation" class="empty-list-notice">
+          <mat-icon>check_circle</mat-icon>
+          <p>No cancellation request active for this policy. Policy is in standard operating status.</p>
+        </div>
+
+        <div *ngIf="cancellation" class="cancellation-info-box">
+          <div class="info-row">
+            <span class="lbl">Cancellation ID:</span>
+            <code class="val">{{ cancellation.cancellationId }}</code>
+          </div>
+          <div class="info-row">
+            <span class="lbl">Status:</span>
+            <span class="status-badge status-{{ cancellation.status | lowercase }}">{{ cancellation.status }}</span>
+          </div>
+          <div class="info-row">
+            <span class="lbl">Reason:</span>
+            <span class="val font-bold">{{ cancellation.reason }}</span>
+          </div>
+          <div class="info-row" *ngIf="cancellation.refundAmount">
+            <span class="lbl">Refund Amount:</span>
+            <span class="val amount-cell">{{ cancellation.refundAmount | currency:'USD' }}</span>
+          </div>
+          <div class="info-row" *ngIf="cancellation.cancelledAt">
+            <span class="lbl">Cancelled At:</span>
+            <span class="val">{{ cancellation.cancelledAt | date:'medium' }}</span>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,185 @@
+<div class="calculate-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="breadcrumb">Risk Assessment / <span>Calculate Risk</span></div>
+      <h1>Underwriting Risk Calculation</h1>
+      <p class="subtitle">Compute composite actuarial risk scores and determine risk classification tier</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="goToAssess()" class="action-btn">
+        <mat-icon>add</mat-icon>
+        <span>New Assessment</span>
+      </button>
+      <button mat-stroked-button (click)="goToView()" class="action-btn">
+        <mat-icon>visibility</mat-icon>
+        <span>View Dossier</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Assessment Search Bar -->
+  <mat-card class="search-card mat-elevation-z2">
+    <form (ngSubmit)="onSearch()" class="search-form">
+      <mat-icon class="search-icon">search</mat-icon>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Enter Risk Assessment ID (UUID)</mat-label>
+        <input matInput [(ngModel)]="assessmentIdInput" name="assessmentId" placeholder="e.g. b8f4d9a2-...">
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!assessmentIdInput || isLoading" class="search-btn">
+        <mat-icon>manage_search</mat-icon>
+        <span>Load Assessment</span>
+      </button>
+    </form>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading risk assessment...</span>
+  </div>
+
+  <!-- Empty / Not Loaded -->
+  <div *ngIf="!isLoading && !assessment" class="empty-state">
+    <mat-icon>speed</mat-icon>
+    <p>Please enter an Assessment ID above or create a new assessment to calculate risk.</p>
+  </div>
+
+  <!-- Assessment Details & Calculation Engine -->
+  <div *ngIf="!isLoading && assessment" class="detail-container">
+    <!-- Summary Header Card -->
+    <mat-card class="summary-card mat-elevation-z2">
+      <div class="summary-head">
+        <div class="title-col">
+          <div class="title-row">
+            <h2>Assessment {{ assessment.assessmentId }}</h2>
+            <span class="status-badge status-{{ assessment.status | lowercase }}">
+              {{ assessment.status }}
+            </span>
+            <span *ngIf="assessment.classification" class="class-badge class-{{ assessment.classification | lowercase }}">
+              {{ assessment.classification }}
+            </span>
+          </div>
+          <span class="sub-meta">
+            Created: {{ assessment.createdAt | date:'medium' }}
+            <span *ngIf="assessment.completedAt"> | Completed: {{ assessment.completedAt | date:'medium' }}</span>
+          </span>
+        </div>
+
+        <div class="score-summary-box" *ngIf="assessment.scores && assessment.scores.length > 0">
+          <span class="score-title">Composite Score</span>
+          <span class="score-number">{{ getLatestScore() }}</span>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="lbl">Customer ID</span>
+          <code class="val">{{ assessment.customerId }}</code>
+        </div>
+        <div class="meta-item">
+          <span class="lbl">Policy Quote ID</span>
+          <code class="val">{{ assessment.quoteId }}</code>
+        </div>
+        <div class="meta-item">
+          <span class="lbl">Total Risk Factors</span>
+          <span class="val font-bold">{{ assessment.factors.length }} Factor(s)</span>
+        </div>
+        <div class="meta-item">
+          <span class="lbl">Classification Tier</span>
+          <span class="val font-bold">{{ assessment.classification || 'Pending Calculation' }}</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <div class="content-split">
+      <!-- Evaluated Risk Factors -->
+      <mat-card class="factors-card mat-elevation-z2">
+        <div class="card-head-bar">
+          <mat-icon color="primary">fact_check</mat-icon>
+          <h3>Evaluated Risk Factors ({{ assessment.factors.length }})</h3>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Factor</th>
+                <th>Reported Value</th>
+                <th>Clinical / Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let f of assessment.factors">
+                <td class="font-bold">{{ f.factorName }}</td>
+                <td><span class="val-pill">{{ f.factorValue }}</span></td>
+                <td class="desc-text">{{ f.description || 'N/A' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </mat-card>
+
+      <!-- Rating Engine Action Card -->
+      <mat-card class="engine-card mat-elevation-z2">
+        <div class="card-head-bar">
+          <mat-icon color="primary">speed</mat-icon>
+          <h3>Actuarial Risk Engine</h3>
+        </div>
+        <mat-divider></mat-divider>
+
+        <!-- If NOT Completed -> Show Calculation Trigger -->
+        <div *ngIf="assessment.status !== 'COMPLETED'" class="calc-trigger-box">
+          <div class="engine-info">
+            <h4>Underwriting Risk Formula:</h4>
+            <p><strong>Baseline Risk:</strong> 10 points</p>
+            <p><strong>Factor Weight:</strong> 15 points × {{ assessment.factors.length }} factors</p>
+            <div class="formula-result">
+              Projected Score: <strong>{{ 10 + 15 * assessment.factors.length }}</strong>
+            </div>
+          </div>
+
+          <button
+            mat-flat-button
+            color="primary"
+            (click)="calculateRisk()"
+            [disabled]="isCalculating"
+            class="calc-btn"
+          >
+            <mat-spinner *ngIf="isCalculating" diameter="20" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isCalculating">play_arrow</mat-icon>
+            <span>{{ isCalculating ? 'Calculating Risk Tier...' : 'Execute Risk Scoring Engine' }}</span>
+          </button>
+        </div>
+
+        <!-- If COMPLETED -> Show Success & Kafka Event Dispatched -->
+        <div *ngIf="assessment.status === 'COMPLETED'" class="calc-completed-box">
+          <div class="completed-banner">
+            <mat-icon>check_circle</mat-icon>
+            <div>
+              <strong>Risk Assessment Completed</strong>
+              <span>Risk Classification: <strong>{{ assessment.classification }}</strong> (Score: {{ getLatestScore() }})</span>
+            </div>
+          </div>
+
+          <div class="kafka-notice">
+            <mat-icon>send</mat-icon>
+            <div>
+              <strong>Kafka Event Published:</strong>
+              <p><code>RiskAssessmentCompletedEvent</code> has been dispatched to <strong>Underwriting Service</strong>.</p>
+            </div>
+          </div>
+
+          <div class="next-action-bar">
+            <button mat-flat-button color="accent" (click)="goToView()">
+              <mat-icon>dossier</mat-icon>
+              <span>View Full Assessment Dossier</span>
+            </button>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+  </div>
+</div>

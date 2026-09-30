@@ -19,13 +19,16 @@ import com.healthinsurance.underwriting.service.UnderwritingService;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -76,6 +79,32 @@ public class UnderwritingServiceImpl implements UnderwritingService {
         UnderwritingCase uwCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new UnderwritingCaseNotFoundException("Case not found with ID: " + caseId));
         return mapper.toResponse(uwCase);
+    }
+
+    @Override
+    public List<UnderwritingCaseResponse> getAllCases() {
+        return caseRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
+                .stream()
+                .map(mapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<UnderwritingCaseResponse> getCasesByCustomerId(UUID customerId) {
+        log.info("Fetching Underwriting Cases from DB for Customer ID: {}", customerId);
+        return caseRepository.findByCustomerIdOrderByCreatedAtDesc(customerId)
+                .stream()
+                .map(mapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<UnderwritingCaseResponse> getCasesByQuoteId(UUID quoteId) {
+        log.info("Fetching Underwriting Cases from DB for Quote ID: {}", quoteId);
+        return caseRepository.findByQuoteIdOrderByCreatedAtDesc(quoteId)
+                .stream()
+                .map(mapper::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
