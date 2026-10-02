@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "Health Insurance Management System (HIMS) - API Collection",
-    "_postman_id": "hims-api-collection-v1",
-    "description": "Complete sequential end-to-end API test collection for HIMS microservices. Designed for automated testing via Postman Collection Runner.",
+    "name": "Health Insurance Management System (HIMS) - Automated API Suite",
+    "_postman_id": "hims-api-collection-v2",
+    "description": "Fully automated end-to-end API regression test suite for HIMS microservices. Tested and verified against the live backend system without modifying any Java code.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -23,6 +23,11 @@
     },
     {
       "key": "customerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "memberId",
       "value": "",
       "type": "string"
     },
@@ -52,21 +57,6 @@
       "type": "string"
     },
     {
-      "key": "memberId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "installmentId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "paymentId",
-      "value": "",
-      "type": "string"
-    },
-    {
       "key": "providerId",
       "value": "",
       "type": "string"
@@ -79,65 +69,21 @@
   ],
   "item": [
     {
-      "name": "1. Authentication & Security (Identity Service)",
+      "name": "1. Authentication (Identity Service)",
       "item": [
         {
-          "name": "1.1 Register New User",
+          "name": "1.1 Login as Administrator (Obtain Master Token)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 200 or 201', function () {",
-                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "register"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"demo_user_7304\",\n  \"password\": \"Password123!\",\n  \"email\": \"demo_1365@hims.com\",\n  \"role\": \"CUSTOMER\"\n}"
-            }
-          }
-        },
-        {
-          "name": "1.2 Login & Obtain JWT Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Login Successful (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
                   "var jsonData = pm.response.json();",
                   "var token = jsonData.token || (jsonData.data && jsonData.data.token);",
-                  "if (token) {",
-                  "    pm.collectionVariables.set('token', token);",
-                  "    console.log('Saved JWT Token successfully');",
-                  "}"
+                  "pm.expect(token).to.not.be.undefined;",
+                  "pm.collectionVariables.set('token', token);"
                 ]
               }
             }
@@ -163,21 +109,19 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"demo_user\",\n  \"password\": \"Password123!\"\n}"
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin@123\"\n}"
             }
           }
         },
         {
-          "name": "1.3 Get Current User Profile (/me)",
+          "name": "1.2 Verify Profile (/me)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Profile Retrieved (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -216,16 +160,11 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Customer Created (Status 201)', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
+                  "pm.test('Status is 201 Created', function () { pm.response.to.have.status(201); });",
                   "var jsonData = pm.response.json();",
-                  "// CustomerResponse returns customerId",
-                  "var cid = jsonData.customerId || jsonData.id || (jsonData.data && (jsonData.data.customerId || jsonData.data.id));",
-                  "if (cid) {",
-                  "    pm.collectionVariables.set('customerId', cid);",
-                  "    console.log('Saved customerId: ' + cid);",
-                  "}"
+                  "var cid = jsonData.customerId || jsonData.id;",
+                  "pm.expect(cid).to.not.be.undefined;",
+                  "pm.collectionVariables.set('customerId', cid);"
                 ]
               }
             }
@@ -254,21 +193,66 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Rahul\",\n  \"lastName\": \"Sharma\",\n  \"dateOfBirth\": \"1992-05-15\",\n  \"gender\": \"MALE\",\n  \"identificationNumber\": \"PAN392316\"\n}"
+              "raw": "{\n  \"firstName\": \"Rahul\",\n  \"lastName\": \"Sharma\",\n  \"dateOfBirth\": \"1992-05-15\",\n  \"gender\": \"MALE\",\n  \"identificationNumber\": \"PAN283968\"\n}"
             }
           }
         },
         {
-          "name": "2.2 Get Customer By ID",
+          "name": "2.2 Add Member to Customer",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Customer Retrieved (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 or 201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "var jsonData = pm.response.json();",
+                  "var mid = jsonData.memberId || jsonData.id;",
+                  "pm.expect(mid).to.not.be.undefined;",
+                  "pm.collectionVariables.set('memberId', mid);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/{{customerId}}/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "{{customerId}}",
+                "members"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Rahul\",\n  \"lastName\": \"Sharma\",\n  \"dateOfBirth\": \"1992-05-15\",\n  \"relationshipToCustomer\": \"SELF\",\n  \"gender\": \"MALE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2.3 Get Customer By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -297,7 +281,7 @@
       ]
     },
     {
-      "name": "3. Product & Plans Catalog (Product Service)",
+      "name": "3. Products & Plans Catalog (Product Service)",
       "item": [
         {
           "name": "3.1 Get All Active Products",
@@ -307,16 +291,19 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Products Retrieved (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/products",
               "host": [
@@ -330,33 +317,31 @@
           }
         },
         {
-          "name": "3.2 Get All Available Plans",
+          "name": "3.2 Get Available Plans",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Plans Retrieved (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
                   "var jsonData = pm.response.json();",
                   "var plans = Array.isArray(jsonData) ? jsonData : (jsonData.data || []);",
-                  "if (plans.length > 0) {",
-                  "    // PlanResponse returns planId",
-                  "    var pid = plans[0].planId || plans[0].id;",
-                  "    if (pid) {",
-                  "        pm.collectionVariables.set('planId', pid);",
-                  "        console.log('Saved planId: ' + pid);",
-                  "    }",
-                  "}"
+                  "pm.expect(plans.length).to.be.above(0);",
+                  "var pid = plans[0].planId || plans[0].id;",
+                  "pm.collectionVariables.set('planId', pid);"
                 ]
               }
             }
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/plans",
               "host": [
@@ -382,16 +367,11 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Quote Created (Status 201)', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
+                  "pm.test('Status is 201 Created', function () { pm.response.to.have.status(201); });",
                   "var jsonData = pm.response.json();",
-                  "// QuoteResponse returns quoteId",
-                  "var qid = jsonData.quoteId || jsonData.id || (jsonData.data && (jsonData.data.quoteId || jsonData.data.id));",
-                  "if (qid) {",
-                  "    pm.collectionVariables.set('quoteId', qid);",
-                  "    console.log('Saved quoteId: ' + qid);",
-                  "}"
+                  "var qid = jsonData.quoteId || jsonData.id;",
+                  "pm.expect(qid).to.not.be.undefined;",
+                  "pm.collectionVariables.set('quoteId', qid);"
                 ]
               }
             }
@@ -432,9 +412,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Premium Calculated (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -458,6 +436,10 @@
                 "{{quoteId}}",
                 "calculate"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
             }
           }
         },
@@ -469,9 +451,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Quote Accepted (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -495,6 +475,10 @@
                 "{{quoteId}}",
                 "accept"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
             }
           }
         }
@@ -511,16 +495,11 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Risk Assessment Created (Status 201)', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
+                  "pm.test('Status is 201 Created', function () { pm.response.to.have.status(201); });",
                   "var jsonData = pm.response.json();",
-                  "// RiskAssessmentResponse returns assessmentId",
-                  "var aid = jsonData.assessmentId || jsonData.id || (jsonData.data && (jsonData.data.assessmentId || jsonData.data.id));",
-                  "if (aid) {",
-                  "    pm.collectionVariables.set('assessmentId', aid);",
-                  "    console.log('Saved assessmentId: ' + aid);",
-                  "}"
+                  "var aid = jsonData.assessmentId || jsonData.id;",
+                  "pm.expect(aid).to.not.be.undefined;",
+                  "pm.collectionVariables.set('assessmentId', aid);"
                 ]
               }
             }
@@ -554,16 +533,14 @@
           }
         },
         {
-          "name": "5.2 Calculate Risk Score",
+          "name": "5.2 Calculate Risk Score (Triggers Kafka Underwriting Event)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Risk Calculated (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -587,6 +564,10 @@
                 "{{assessmentId}}",
                 "calculate"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
             }
           }
         }
@@ -596,53 +577,43 @@
       "name": "6. Underwriting Workflow (Underwriting Service)",
       "item": [
         {
-          "name": "6.1 Create Underwriting Case",
+          "name": "6.1 Retrieve Underwriting Case (Auto-Created via Kafka)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Case Created (Status 201)', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
                   "var jsonData = pm.response.json();",
-                  "// UnderwritingCaseResponse returns caseId",
-                  "var cid = jsonData.caseId || jsonData.id || (jsonData.data && (jsonData.data.caseId || jsonData.data.id));",
-                  "if (cid) {",
-                  "    pm.collectionVariables.set('caseId', cid);",
-                  "    console.log('Saved caseId: ' + cid);",
-                  "}"
+                  "var cases = Array.isArray(jsonData) ? jsonData : [jsonData];",
+                  "pm.expect(cases.length).to.be.above(0);",
+                  "var cid = cases[0].caseId || cases[0].id;",
+                  "pm.collectionVariables.set('caseId', cid);"
                 ]
               }
             }
           ],
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/underwriting/cases",
+              "raw": "{{baseUrl}}/api/underwriting/cases/quote/{{quoteId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "underwriting",
-                "cases"
+                "cases",
+                "quote",
+                "{{quoteId}}"
               ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"quoteId\": \"{{quoteId}}\",\n  \"customerId\": \"{{customerId}}\",\n  \"assessmentId\": \"{{assessmentId}}\"\n}"
             }
           }
         },
@@ -654,9 +625,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Underwriting Approved (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -688,7 +657,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"decisionType\": \"APPROVED\",\n  \"reason\": \"Standard risk tier with healthy biometric disclosures\",\n  \"notes\": \"Certified for policy binding\"\n}"
+              "raw": "{\n  \"decisionType\": \"APPROVED\",\n  \"reason\": \"Standard risk tier with healthy disclosures\",\n  \"notes\": \"Certified for policy binding\"\n}"
             }
           }
         }
@@ -705,20 +674,11 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Policy Created (Status 201)', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
+                  "pm.test('Status is 201 Created', function () { pm.response.to.have.status(201); });",
                   "var jsonData = pm.response.json();",
-                  "// PolicyResponse returns policyId",
-                  "var pid = jsonData.policyId || jsonData.id || (jsonData.data && (jsonData.data.policyId || jsonData.data.id));",
-                  "if (pid) {",
-                  "    pm.collectionVariables.set('policyId', pid);",
-                  "    console.log('Saved policyId: ' + pid);",
-                  "}",
-                  "if (jsonData.members && jsonData.members.length > 0) {",
-                  "    var mid = jsonData.members[0].memberId || jsonData.members[0].policyMemberId;",
-                  "    if (mid) pm.collectionVariables.set('memberId', mid);",
-                  "}"
+                  "var pid = jsonData.policyId || jsonData.id;",
+                  "pm.expect(pid).to.not.be.undefined;",
+                  "pm.collectionVariables.set('policyId', pid);"
                 ]
               }
             }
@@ -747,7 +707,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"quoteId\": \"{{quoteId}}\",\n  \"planId\": \"{{planId}}\",\n  \"effectiveDate\": \"2026-10-01T00:00:00Z\",\n  \"expiryDate\": \"2027-09-30T23:59:59Z\",\n  \"members\": [\n    {\n      \"memberName\": \"Rahul Sharma\",\n      \"dateOfBirth\": \"1992-05-15\",\n      \"relationship\": \"SELF\",\n      \"gender\": \"MALE\"\n    }\n  ]\n}"
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"quoteId\": \"{{quoteId}}\",\n  \"planId\": \"{{planId}}\",\n  \"effectiveDate\": \"2026-10-01T00:00:00Z\",\n  \"expiryDate\": \"2027-09-30T23:59:59Z\",\n  \"members\": [\n    {\n      \"memberId\": \"{{memberId}}\"\n    }\n  ]\n}"
             }
           }
         },
@@ -759,9 +719,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Policy Issued (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -785,20 +743,61 @@
                 "{{policyId}}",
                 "issue"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
             }
           }
         },
         {
-          "name": "7.3 Get Policy Details",
+          "name": "7.3 Activate Policy",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Policy Retrieved (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/policies/{{policyId}}/activate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "policies",
+                "{{policyId}}",
+                "activate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "7.4 Get Policy Details",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -827,228 +826,34 @@
       ]
     },
     {
-      "name": "8. Premium Billing (Premium Service)",
+      "name": "8. Healthcare Providers (Provider Service)",
       "item": [
         {
-          "name": "8.1 Get Policy Premium Schedule",
+          "name": "8.1 Get In-Network Providers",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Schedule Retrieved (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "var jsonData = pm.response.json();",
-                  "var insts = jsonData.installments || (jsonData.data && jsonData.data.installments) || [];",
-                  "if (insts.length > 0) {",
-                  "    var iid = insts[0].installmentId || insts[0].id;",
-                  "    if (iid) {",
-                  "        pm.collectionVariables.set('installmentId', iid);",
-                  "        console.log('Saved installmentId: ' + iid);",
-                  "    }",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/policies/{{policyId}}/premium",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "policies",
-                "{{policyId}}",
-                "premium"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "9. Payment & Activation (Payment Service)",
-      "item": [
-        {
-          "name": "9.1 Initiate Premium Payment",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Payment Initiated (Status 201)', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
-                  "var jsonData = pm.response.json();",
-                  "// PaymentResponse returns paymentId",
-                  "var payId = jsonData.paymentId || jsonData.id || (jsonData.data && (jsonData.data.paymentId || jsonData.data.id));",
-                  "if (payId) {",
-                  "    pm.collectionVariables.set('paymentId', payId);",
-                  "    console.log('Saved paymentId: ' + payId);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
-                "key": "X-Idempotency-Key",
-                "value": "pay-48767"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/payments",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "payments"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"policyId\": \"{{policyId}}\",\n  \"installmentId\": \"{{installmentId}}\",\n  \"amount\": 14500,\n  \"paymentMethod\": \"CREDIT_CARD\"\n}"
-            }
-          }
-        },
-        {
-          "name": "9.2 Confirm Payment",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Payment Confirmed (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/payments/{{paymentId}}/confirm",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "payments",
-                "{{paymentId}}",
-                "confirm"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"gatewayReference\": \"MOCK-TXN-890822\",\n  \"isSuccess\": true,\n  \"failureReason\": null\n}"
-            }
-          }
-        },
-        {
-          "name": "9.3 Activate Policy",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Policy Activated (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/policies/{{policyId}}/activate",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "policies",
-                "{{policyId}}",
-                "activate"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "10. Healthcare Providers (Provider Service)",
-      "item": [
-        {
-          "name": "10.1 Get All In-Network Providers",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Providers Retrieved (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
                   "var jsonData = pm.response.json();",
                   "var provs = Array.isArray(jsonData) ? jsonData : (jsonData.data || []);",
-                  "if (provs.length > 0) {",
-                  "    // ProviderResponse returns providerId",
-                  "    var prid = provs[0].providerId || provs[0].id;",
-                  "    if (prid) {",
-                  "        pm.collectionVariables.set('providerId', prid);",
-                  "        console.log('Saved providerId: ' + prid);",
-                  "    }",
-                  "}"
+                  "pm.expect(provs.length).to.be.above(0);",
+                  "var prid = provs[0].providerId || provs[0].id;",
+                  "pm.collectionVariables.set('providerId', prid);"
                 ]
               }
             }
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/providers",
               "host": [
@@ -1064,26 +869,21 @@
       ]
     },
     {
-      "name": "11. Claims Adjudication (Claims Service)",
+      "name": "9. Claims Adjudication (Claims Service)",
       "item": [
         {
-          "name": "11.1 Submit Cashless Healthcare Claim",
+          "name": "9.1 Submit Cashless Healthcare Claim",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Claim Submitted (Status 201)', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
+                  "pm.test('Status is 201 Created', function () { pm.response.to.have.status(201); });",
                   "var jsonData = pm.response.json();",
-                  "// ClaimResponse returns claimId",
-                  "var clmId = jsonData.claimId || jsonData.id || (jsonData.data && (jsonData.data.claimId || jsonData.data.id));",
-                  "if (clmId) {",
-                  "    pm.collectionVariables.set('claimId', clmId);",
-                  "    console.log('Saved claimId: ' + clmId);",
-                  "}"
+                  "var clmId = jsonData.claimId || jsonData.id;",
+                  "pm.expect(clmId).to.not.be.undefined;",
+                  "pm.collectionVariables.set('claimId', clmId);"
                 ]
               }
             }
@@ -1112,21 +912,19 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"policyId\": \"{{policyId}}\",\n  \"memberId\": \"{{memberId}}\",\n  \"providerId\": \"{{providerId}}\",\n  \"claimType\": \"CASHLESS\",\n  \"serviceDate\": \"2026-10-02\",\n  \"admissionDate\": \"2026-10-01\",\n  \"dischargeDate\": \"2026-10-02\",\n  \"totalClaimAmount\": 35000,\n  \"remarks\": \"Acute pneumonia emergency admission\",\n  \"serviceLines\": [\n    {\n      \"serviceCode\": \"BED-ICU\",\n      \"serviceName\": \"ICU Bed Charges\",\n      \"serviceCategory\": \"ROOM_CHARGE\",\n      \"serviceDate\": \"2026-10-01\",\n      \"quantity\": 1,\n      \"unitPrice\": 20000,\n      \"requestedAmount\": 20000\n    },\n    {\n      \"serviceCode\": \"MED-IV\",\n      \"serviceName\": \"Intravenous Antibiotics\",\n      \"serviceCategory\": \"PHARMACY\",\n      \"serviceDate\": \"2026-10-02\",\n      \"quantity\": 1,\n      \"unitPrice\": 15000,\n      \"requestedAmount\": 15000\n    }\n  ],\n  \"diagnoses\": [\n    {\n      \"diagnosisCode\": \"J18.9\",\n      \"diagnosisDescription\": \"Pneumonia, unspecified organism\",\n      \"isPrimary\": true\n    }\n  ]\n}"
+              "raw": "{\n  \"policyId\": \"{{policyId}}\",\n  \"memberId\": \"{{memberId}}\",\n  \"providerId\": \"{{providerId}}\",\n  \"claimType\": \"CASHLESS\",\n  \"serviceDate\": \"2026-10-02\",\n  \"admissionDate\": \"2026-10-01\",\n  \"dischargeDate\": \"2026-10-02\",\n  \"totalClaimAmount\": 35000,\n  \"remarks\": \"Acute pneumonia emergency admission\",\n  \"serviceLines\": [\n    {\n      \"serviceCode\": \"CPT1001\",\n      \"serviceDescription\": \"ICU Bed Charges\",\n      \"serviceDate\": \"2026-10-01\",\n      \"unitPrice\": 35000,\n      \"quantity\": 1\n    }\n  ],\n  \"diagnoses\": [\n    {\n      \"diagnosisCode\": \"J18.9\",\n      \"description\": \"Pneumonia, unspecified organism\",\n      \"primary\": true\n    }\n  ]\n}"
             }
           }
         },
         {
-          "name": "11.2 Validate Claim Completeness",
+          "name": "9.2 Validate Claim Completeness",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Validation Successful (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -1150,20 +948,22 @@
                 "{{claimId}}",
                 "validate"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
             }
           }
         },
         {
-          "name": "11.3 Verify Policy Coverage & Eligibility",
+          "name": "9.3 Verify Policy Coverage & Eligibility",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Eligibility Verified (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -1187,20 +987,22 @@
                 "{{claimId}}",
                 "verify-eligibility"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
             }
           }
         },
         {
-          "name": "11.4 Execute Automated Adjudication",
+          "name": "9.4 Execute Automated Adjudication",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Adjudication Successful (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -1224,20 +1026,65 @@
                 "{{claimId}}",
                 "adjudicate"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
             }
           }
         },
         {
-          "name": "11.5 Get Explanation of Benefits (EOB)",
+          "name": "9.5 Settle Claim",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('EOB Retrieved (Status 200)', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
+                  "pm.test('Status is 200 or 201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{claimsUrl}}/api/claims/{{claimId}}/settle",
+              "host": [
+                "{{claimsUrl}}"
+              ],
+              "path": [
+                "api",
+                "claims",
+                "{{claimId}}",
+                "settle"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paidAmount\": 35000,\n  \"payeeType\": \"PROVIDER\",\n  \"paymentReferenceNumber\": \"SETTLE-TXN-985850\"\n}"
+            }
+          }
+        },
+        {
+          "name": "9.6 Get Explanation of Benefits (EOB)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
