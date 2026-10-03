@@ -8,9 +8,9 @@ export type EndorsementType =
   | 'COVERAGE_CHANGE'
   | 'RIDER_ADDITION';
 
-export type EndorsementStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'APPLIED';
+export type EndorsementStatus = 'REQUESTED' | 'PENDING' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'APPLIED';
 
-export type CancellationStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+export type CancellationStatus = 'REQUESTED' | 'VALIDATED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REFUND_CALCULATED' | 'CANCELLED' | 'REJECTED';
 
 export type RenewalStatus = 'PENDING' | 'ACCEPTED' | 'COMPLETED' | 'REJECTED';
 

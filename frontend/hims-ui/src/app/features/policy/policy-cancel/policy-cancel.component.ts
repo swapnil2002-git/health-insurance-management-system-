@@ -110,29 +110,19 @@ export class PolicyCancelComponent implements OnInit {
       requestedBy: formVal.requestedBy
     };
 
-    this.policyService.cancelPolicyDirect(this.policy.policyId, req).subscribe({
-      next: (res) => {
+    this.policyService.requestCancellation(this.policy.policyId, req).subscribe({
+      next: (cRes) => {
         this.isSubmitting = false;
-        this.policy = res;
+        this.cancellation = cRes;
         this.notificationService.success(
-          `Policy ${res.policyNumber} has been CANCELLED successfully!`
+          `Cancellation request submitted! Status: ${cRes.status}. Estimated refund: $${cRes.refundAmount || 0}`
         );
-        this.fetchPolicy(res.policyId);
+        this.fetchPolicy(this.policy!.policyId);
       },
-      error: () => {
-        // Fallback to requestCancellation
-        this.policyService.requestCancellation(this.policy!.policyId, req).subscribe({
-          next: (cRes) => {
-            this.isSubmitting = false;
-            this.cancellation = cRes;
-            this.notificationService.warning(
-              `Cancellation request submitted! Status: ${cRes.status}.`
-            );
-          },
-          error: () => {
-            this.isSubmitting = false;
-          }
-        });
+      error: (err) => {
+        this.isSubmitting = false;
+        const msg = err.error?.message || 'Failed to submit cancellation request';
+        this.notificationService.error(msg);
       }
     });
   }
@@ -142,7 +132,7 @@ export class PolicyCancelComponent implements OnInit {
     const adminUser = this.authService.getUsername() || 'admin';
     this.policyService.approveCancellation(this.policy.policyId, {
       approvedBy: adminUser,
-      refundAmount: 250,
+      refundAmount: this.cancellation?.refundAmount || 250,
       notes: 'Prorated cancellation refund approved'
     }).subscribe({
       next: (res) => {
@@ -151,6 +141,10 @@ export class PolicyCancelComponent implements OnInit {
           `Cancellation APPROVED. Policy status transitioned to CANCELLED. Refund: $${res.refundAmount || 0}`
         );
         this.fetchPolicy(this.policy!.policyId);
+      },
+      error: (err) => {
+        const msg = err.error?.message || 'Failed to approve cancellation';
+        this.notificationService.error(msg);
       }
     });
   }
@@ -166,6 +160,11 @@ export class PolicyCancelComponent implements OnInit {
         this.notificationService.info('Cancellation request rejected. Policy remains active.');
       }
     });
+  }
+
+  viewInPaymentLedger(): void {
+    if (!this.policy) return;
+    this.router.navigate(['/payments'], { queryParams: { policyId: this.policy.policyId } });
   }
 
   goToPolicies(): void {

@@ -112,8 +112,8 @@
         </div>
       </div>
 
-      <!-- Admin Decision Actions if status is REQUESTED -->
-      <div *ngIf="cancellation.status === 'REQUESTED'" class="admin-actions-box">
+      <!-- Admin Decision Actions if status is REQUESTED or PENDING_APPROVAL -->
+      <div *ngIf="cancellation.status === 'REQUESTED' || cancellation.status === 'PENDING_APPROVAL'" class="admin-actions-box">
         <span class="admin-prompt">Administrative Action:</span>
         <div class="btn-group">
           <button mat-flat-button color="warn" (click)="onApproveCancellation()">
@@ -125,6 +125,26 @@
             <span>Reject Request</span>
           </button>
         </div>
+      </div>
+
+      <!-- Settlement & Refund Receipt Actions if CANCELLED or APPROVED -->
+      <div *ngIf="cancellation.status === 'CANCELLED' || cancellation.status === 'APPROVED'" class="refund-settlement-box">
+        <div class="refund-info">
+          <mat-icon color="primary">account_balance_wallet</mat-icon>
+          <div class="refund-texts">
+            <div class="settlement-title">Refund Disbursed via Payment Gateway</div>
+            <div class="settlement-desc">
+              Unearned pro-rata refund of <strong>{{ (cancellation.refundAmount || 0) | currency:'USD' }}</strong> has been reversed to the policyholder's payment method.
+            </div>
+            <div *ngIf="cancellation.refundTransactionId" class="settlement-ref">
+              Refund Transaction Reference: <code>{{ cancellation.refundTransactionId }}</code>
+            </div>
+          </div>
+        </div>
+        <button mat-flat-button color="primary" (click)="viewInPaymentLedger()" class="view-ledger-btn">
+          <mat-icon>receipt_long</mat-icon>
+          <span>View in Payment Ledger</span>
+        </button>
       </div>
     </mat-card>
 

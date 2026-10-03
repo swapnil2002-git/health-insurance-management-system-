@@ -62,9 +62,9 @@ public class PolicyController {
         return ResponseEntity.ok(policyService.activatePolicy(id));
     }
 
-    @PostMapping("/{id}/endorsements")
+    @PostMapping("/{id}/endorsements/direct")
     @PreAuthorize("hasAnyRole('POLICY_ADMINISTRATOR', 'AGENT', 'CUSTOMER', 'SYSTEM_ADMINISTRATOR', 'ADMIN')")
-    @Operation(summary = "Add an endorsement to an ACTIVE policy")
+    @Operation(summary = "Add an endorsement directly to an ACTIVE policy (Legacy)")
     public ResponseEntity<PolicyResponse> addEndorsement(
             @PathVariable("id") UUID id,
             @Valid @RequestBody PolicyEndorsementRequest request) {

@@ -76,7 +76,7 @@
         </div>
         <div class="sum-item">
           <span class="lbl">Enrolled Members</span>
-          <span class="val">{{ policy.members.length || 0 }} member(s)</span>
+          <span class="val">{{ policy.members ? policy.members.length : 0 }} member(s)</span>
         </div>
       </div>
     </mat-card>
@@ -101,6 +101,156 @@
           <mat-error *ngIf="endorseForm.get('endorsementType')?.hasError('required')">Type is required</mat-error>
         </mat-form-field>
 
+        <!-- Financial vs Non-Financial Endorsement Advisory Banner -->
+        <div class="financial-advisory-banner" [ngClass]="{
+          'is-financial': endorseForm.get('endorsementType')?.value === 'ADD_MEMBER' || endorseForm.get('endorsementType')?.value === 'RIDER_ADDITION' || endorseForm.get('endorsementType')?.value === 'COVERAGE_CHANGE',
+          'is-downward': endorseForm.get('endorsementType')?.value === 'REMOVE_MEMBER',
+          'is-nonfinancial': endorseForm.get('endorsementType')?.value === 'NOMINEE_CHANGE' || endorseForm.get('endorsementType')?.value === 'ADDRESS_CHANGE'
+        }">
+          <mat-icon>{{ (endorseForm.get('endorsementType')?.value === 'NOMINEE_CHANGE' || endorseForm.get('endorsementType')?.value === 'ADDRESS_CHANGE') ? 'info' : 'payments' }}</mat-icon>
+          <div *ngIf="endorseForm.get('endorsementType')?.value === 'ADD_MEMBER'">
+            <strong>Financial Endorsement:</strong> Adding a dependent recalculates policy risk with approximately <strong>+$150.00/yr</strong> premium impact.
+          </div>
+          <div *ngIf="endorseForm.get('endorsementType')?.value === 'RIDER_ADDITION'">
+            <strong>Financial Endorsement:</strong> Attaching an ancillary rider recalculates premium by <strong>+5% of rider cover amount</strong>.
+          </div>
+          <div *ngIf="endorseForm.get('endorsementType')?.value === 'COVERAGE_CHANGE'">
+            <strong>Financial Endorsement:</strong> Revising sum insured recalculates underlying underwriting premium.
+          </div>
+          <div *ngIf="endorseForm.get('endorsementType')?.value === 'REMOVE_MEMBER'">
+            <strong>Downward Adjustment:</strong> De-enrolling a member issues a premium reduction of <strong>-$100.00 pro-rata unearned credit</strong>.
+          </div>
+          <div *ngIf="endorseForm.get('endorsementType')?.value === 'NOMINEE_CHANGE' || endorseForm.get('endorsementType')?.value === 'ADDRESS_CHANGE'">
+            <strong>Non-Financial Amendment:</strong> Beneficiary or contact changes do not alter risk scoring. Premium impact: <strong>$0.00</strong>.
+          </div>
+        </div>
+
+        <!-- DYNAMIC FIELDS SECTION: 1. ADD_MEMBER -->
+        <div *ngIf="endorseForm.get('endorsementType')?.value === 'ADD_MEMBER'" class="dynamic-section">
+          <div class="section-label">
+            <mat-icon>person_add</mat-icon>
+            <span>Dependent Member Enrollment Information</span>
+          </div>
+          <div class="form-row-2">
+            <mat-form-field appearance="outline">
+              <mat-label>Dependent Full Name *</mat-label>
+              <input matInput formControlName="newMemberName" placeholder="e.g. Jane Doe">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Relationship to Primary Insured *</mat-label>
+              <mat-select formControlName="newMemberRelation">
+                <mat-option *ngFor="let rel of relationships" [value]="rel">{{ rel }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="uuid-row">
+            <mat-form-field appearance="outline">
+              <mat-label>New Member UUID (Auto-generated)</mat-label>
+              <input matInput formControlName="newMemberId" readonly>
+            </mat-form-field>
+            <button mat-stroked-button type="button" (click)="refreshNewMemberId()" matTooltip="Regenerate distinct UUID">
+              <mat-icon>refresh</mat-icon>
+              <span>Regenerate ID</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- DYNAMIC FIELDS SECTION: 2. REMOVE_MEMBER -->
+        <div *ngIf="endorseForm.get('endorsementType')?.value === 'REMOVE_MEMBER'" class="dynamic-section">
+          <div class="section-label">
+            <mat-icon>person_remove</mat-icon>
+            <span>Select Active Policy Member to Remove</span>
+          </div>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Enrolled Member to De-enroll *</mat-label>
+            <mat-select formControlName="selectedMemberId">
+              <mat-option *ngFor="let m of policy.members; let idx = index" [value]="m.memberId">
+                Enrolled Member #{{ idx + 1 }} (ID: {{ m.memberId }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- DYNAMIC FIELDS SECTION: 3. NOMINEE_CHANGE -->
+        <div *ngIf="endorseForm.get('endorsementType')?.value === 'NOMINEE_CHANGE'" class="dynamic-section">
+          <div class="section-label">
+            <mat-icon>family_restroom</mat-icon>
+            <span>Beneficiary / Nominee Designation</span>
+          </div>
+          <div class="form-row-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Nominee Full Name *</mat-label>
+              <input matInput formControlName="nomineeName" placeholder="e.g. Jane Doe">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Relationship *</mat-label>
+              <mat-select formControlName="nomineeRelationship">
+                <mat-option *ngFor="let nRel of nomineeRelationships" [value]="nRel">{{ nRel }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Share (%)</mat-label>
+              <input matInput type="number" formControlName="nomineePercentage" min="1" max="100">
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- DYNAMIC FIELDS SECTION: 4. ADDRESS_CHANGE -->
+        <div *ngIf="endorseForm.get('endorsementType')?.value === 'ADDRESS_CHANGE'" class="dynamic-section">
+          <div class="section-label">
+            <mat-icon>home</mat-icon>
+            <span>Residential Address Modification</span>
+          </div>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Updated Residential Address (Street, City, State, Postal Code) *</mat-label>
+            <textarea matInput rows="2" formControlName="newAddress" placeholder="e.g. 123 Elm Street, Suite 400, New York, NY 10001"></textarea>
+          </mat-form-field>
+        </div>
+
+        <!-- DYNAMIC FIELDS SECTION: 5. RIDER_ADDITION -->
+        <div *ngIf="endorseForm.get('endorsementType')?.value === 'RIDER_ADDITION'" class="dynamic-section">
+          <div class="section-label">
+            <mat-icon>add_moderator</mat-icon>
+            <span>Optional Ancillary Rider Details</span>
+          </div>
+          <div class="form-row-2">
+            <mat-form-field appearance="outline">
+              <mat-label>Rider Package *</mat-label>
+              <mat-select formControlName="riderName">
+                <mat-option *ngFor="let ro of riderOptions" [value]="ro">{{ ro }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Rider Coverage Sum Insured ($) *</mat-label>
+              <input matInput type="number" formControlName="riderAmount" placeholder="e.g. 250000">
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- DYNAMIC FIELDS SECTION: 6. COVERAGE_CHANGE -->
+        <div *ngIf="endorseForm.get('endorsementType')?.value === 'COVERAGE_CHANGE'" class="dynamic-section">
+          <div class="section-label">
+            <mat-icon>health_and_safety</mat-icon>
+            <span>Coverage Limits Revision</span>
+          </div>
+          <div class="form-row-2">
+            <mat-form-field appearance="outline">
+              <mat-label>Coverage Name *</mat-label>
+              <input matInput formControlName="coverageName" placeholder="e.g. Comprehensive Inpatient Care">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Revised Total Sum Insured ($) *</mat-label>
+              <input matInput type="number" formControlName="coverageAmount" placeholder="e.g. 750000">
+            </mat-form-field>
+          </div>
+        </div>
+
         <!-- Description -->
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Endorsement Purpose / Justification *</mat-label>
@@ -108,18 +258,6 @@
           <mat-error *ngIf="endorseForm.get('description')?.hasError('required')">Description is required</mat-error>
           <mat-error *ngIf="endorseForm.get('description')?.hasError('minlength')">Must be at least 5 characters</mat-error>
           <mat-error *ngIf="endorseForm.get('description')?.hasError('maxlength')">Cannot exceed 500 characters</mat-error>
-        </mat-form-field>
-
-        <!-- Change Details -->
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Specific Amendment Data / Notes</mat-label>
-          <textarea
-            matInput
-            rows="3"
-            formControlName="changeDetails"
-            maxlength="1000"
-            placeholder="Record relevant details (e.g., Name of dependent, new address, rider requested)..."
-          ></textarea>
         </mat-form-field>
 
         <!-- Requested By -->
@@ -167,7 +305,7 @@
             <tr>
               <th>Type</th>
               <th>Status</th>
-              <th>Description</th>
+              <th>Description / Premium Impact</th>
               <th>Requested By</th>
               <th>Submitted At</th>
               <th class="actions-header">Admin Action</th>
@@ -181,22 +319,27 @@
                   {{ e.status }}
                 </span>
               </td>
-              <td>{{ e.description }}</td>
+              <td>
+                <div>{{ e.description }}</div>
+                <div *ngIf="e.revisedPremium" class="premium-chip">
+                  Revised Premium: {{ e.revisedPremium | currency:'USD' }}
+                </div>
+              </td>
               <td>{{ e.requestedBy || 'N/A' }}</td>
               <td class="date-cell">{{ e.createdAt | date:'medium' }}</td>
               <td class="actions-cell">
                 <button
-                  *ngIf="e.status === 'PENDING'"
+                  *ngIf="e.status === 'PENDING_APPROVAL' || e.status === 'PENDING'"
                   mat-stroked-button
                   class="btn-approve-sm"
                   (click)="onApprove(e.endorsementId)"
-                  matTooltip="Approve & apply endorsement"
+                  matTooltip="Approve & apply endorsement to policy"
                 >
                   <mat-icon>check</mat-icon>
                   <span>Approve</span>
                 </button>
                 <button
-                  *ngIf="e.status === 'PENDING'"
+                  *ngIf="e.status === 'PENDING_APPROVAL' || e.status === 'PENDING'"
                   mat-stroked-button
                   color="warn"
                   class="btn-reject-sm"
@@ -205,6 +348,17 @@
                 >
                   <mat-icon>close</mat-icon>
                   <span>Reject</span>
+                </button>
+                <button
+                  *ngIf="e.status === 'APPLIED' && e.revisedPremium"
+                  mat-flat-button
+                  color="primary"
+                  class="btn-pay-sm"
+                  (click)="payEndorsementPremium(e)"
+                  matTooltip="Pay revised endorsement premium through Payment Gateway"
+                >
+                  <mat-icon>credit_card</mat-icon>
+                  <span>Pay {{ e.revisedPremium | currency:'USD' }}</span>
                 </button>
               </td>
             </tr>

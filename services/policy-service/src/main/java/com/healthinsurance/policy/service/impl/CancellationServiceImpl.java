@@ -97,13 +97,17 @@ public class CancellationServiceImpl implements CancellationService {
         PolicyCancellation cancellation = cancellationRepository.findByPolicy_PolicyId(policyId)
                 .orElseThrow(() -> new PolicyNotFoundException("Cancellation record not found for policy: " + policyId));
 
-        if (cancellation.getStatus() != CancellationStatus.PENDING_APPROVAL) {
+        if (cancellation.getStatus() != CancellationStatus.PENDING_APPROVAL && cancellation.getStatus() != CancellationStatus.REQUESTED) {
             throw new InvalidPolicyStateException("Cancellation is not pending approval. Current status: " + cancellation.getStatus());
         }
 
         Policy policy = cancellation.getPolicy();
-        if (policy.getStatus() != PolicyStatus.ACTIVE) {
+        if (policy.getStatus() != PolicyStatus.ACTIVE && policy.getStatus() != PolicyStatus.CANCELLED) {
             throw new InvalidPolicyStateException("Cannot cancel policy because it is not ACTIVE: " + policy.getStatus());
+        }
+
+        if (cancellation.getRefundAmount() == null) {
+            cancellation.setRefundAmount(calculateProRataRefund(policy));
         }
 
         // Trigger payment refund if refund amount > 0
@@ -162,7 +166,7 @@ public class CancellationServiceImpl implements CancellationService {
         PolicyCancellation cancellation = cancellationRepository.findByPolicy_PolicyId(policyId)
                 .orElseThrow(() -> new PolicyNotFoundException("Cancellation record not found for policy: " + policyId));
 
-        if (cancellation.getStatus() != CancellationStatus.PENDING_APPROVAL) {
+        if (cancellation.getStatus() != CancellationStatus.PENDING_APPROVAL && cancellation.getStatus() != CancellationStatus.REQUESTED) {
             throw new InvalidPolicyStateException("Cancellation cannot be rejected from status: " + cancellation.getStatus());
         }
 
