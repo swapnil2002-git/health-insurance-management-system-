@@ -322,7 +322,7 @@
               <td>
                 <div>{{ e.description }}</div>
                 <div *ngIf="e.revisedPremium" class="premium-chip">
-                  Revised Premium: {{ e.revisedPremium | currency:'USD' }}
+                  Revised Total: {{ e.revisedPremium | currency:'USD' }} (Adjustment: +{{ getEndorsementDelta(e) | currency:'USD' }})
                 </div>
               </td>
               <td>{{ e.requestedBy || 'N/A' }}</td>
@@ -355,10 +355,10 @@
                   color="primary"
                   class="btn-pay-sm"
                   (click)="payEndorsementPremium(e)"
-                  matTooltip="Pay revised endorsement premium through Payment Gateway"
+                  matTooltip="Pay endorsement adjustment fee through Payment Gateway"
                 >
                   <mat-icon>credit_card</mat-icon>
-                  <span>Pay {{ e.revisedPremium | currency:'USD' }}</span>
+                  <span>Pay Adjustment ({{ getEndorsementDelta(e) | currency:'USD' }})</span>
                 </button>
               </td>
             </tr>

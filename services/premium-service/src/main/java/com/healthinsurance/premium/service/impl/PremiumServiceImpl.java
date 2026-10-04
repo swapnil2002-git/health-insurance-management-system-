@@ -28,6 +28,7 @@ import org.springframework.data.domain.Sort;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -127,10 +128,6 @@ public class PremiumServiceImpl implements PremiumService {
         PremiumSchedule schedule = scheduleRepository.findByPolicyId(policyId)
                 .orElseThrow(() -> new PremiumScheduleNotFoundException("Premium schedule not found for policy ID: " + policyId));
 
-        if (schedule.getPremiumStatus() == PremiumStatus.PAID) {
-            throw new InvalidPremiumScheduleException("Cannot recalculate a fully paid premium schedule.");
-        }
-
         BigDecimal newTotal = calculationService.calculateTotalPremium(
                 request.getBasePremium() != null ? request.getBasePremium() : schedule.getTotalPremium(),
                 request.getRiderPremium(),
@@ -143,6 +140,11 @@ public class PremiumServiceImpl implements PremiumService {
 
         if (newTotal.compareTo(paidAmount) < 0) {
             throw new InvalidPremiumScheduleException("New total premium (" + newTotal + ") cannot be less than already paid amount (" + paidAmount + ")");
+        }
+
+        if (schedule.getPremiumStatus() == PremiumStatus.PAID && newTotal.compareTo(paidAmount) == 0) {
+            log.info("Policy ID {} is already fully paid with identical premium {}. Skipping recalculation.", policyId, newTotal);
+            return mapper.toResponse(schedule);
         }
 
         BigDecimal remainingOutstanding = newTotal.subtract(paidAmount);
@@ -169,15 +171,43 @@ public class PremiumServiceImpl implements PremiumService {
                 inst.setOutstandingAmount(instAmount.subtract(inst.getPaidAmount() != null ? inst.getPaidAmount() : BigDecimal.ZERO));
                 inst.setUpdatedAt(Instant.now());
             }
+        } else if (remainingOutstanding.compareTo(BigDecimal.ZERO) > 0) {
+            // All existing installments were paid, but an endorsement increased premium:
+            // Create an Endorsement Adjustment installment for the additional premium delta
+            int nextInstallmentNumber = schedule.getInstallments().stream()
+                    .mapToInt(PremiumInstallment::getInstallmentNumber)
+                    .max()
+                    .orElse(0) + 1;
+
+            PremiumInstallment endorsementInstallment = new PremiumInstallment();
+            endorsementInstallment.setInstallmentNumber(nextInstallmentNumber);
+            endorsementInstallment.setAmount(remainingOutstanding);
+            endorsementInstallment.setOutstandingAmount(remainingOutstanding);
+            endorsementInstallment.setPaidAmount(BigDecimal.ZERO);
+            endorsementInstallment.setDueDate(LocalDate.now().plusDays(15));
+            endorsementInstallment.setStatus(InstallmentStatus.PENDING);
+            endorsementInstallment.setCreatedAt(Instant.now());
+            endorsementInstallment.setUpdatedAt(Instant.now());
+            schedule.addInstallment(endorsementInstallment);
+            schedule.setNumberOfInstallments(schedule.getInstallments().size());
+            log.info("Created endorsement adjustment installment #{} for policy ID: {} with amount: {}",
+                    nextInstallmentNumber, policyId, remainingOutstanding);
         }
 
         schedule.setTotalPremium(newTotal);
         schedule.setOutstandingAmount(remainingOutstanding);
+        if (remainingOutstanding.compareTo(BigDecimal.ZERO) == 0) {
+            schedule.setPremiumStatus(PremiumStatus.PAID);
+        } else if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+            schedule.setPremiumStatus(PremiumStatus.PARTIALLY_PAID);
+        } else {
+            schedule.setPremiumStatus(PremiumStatus.PENDING);
+        }
         schedule.setUpdatedAt(Instant.now());
 
         PremiumSchedule updated = scheduleRepository.save(schedule);
-        log.info("Successfully recalculated premium for policy ID: {}. New total: {}, remaining outstanding: {}",
-                policyId, newTotal, remainingOutstanding);
+        log.info("Successfully recalculated premium for policy ID: {}. New total: {}, remaining outstanding: {}, status: {}",
+                policyId, newTotal, remainingOutstanding, updated.getPremiumStatus());
 
         return mapper.toResponse(updated);
     }

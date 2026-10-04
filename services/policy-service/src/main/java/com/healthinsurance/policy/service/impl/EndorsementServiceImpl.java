@@ -245,7 +245,17 @@ public class EndorsementServiceImpl implements EndorsementService {
     }
 
     private BigDecimal calculateEstimatedPremium(Policy policy, EndorsementType type, Map<String, Object> changeData) {
-        BigDecimal base = BigDecimal.valueOf(500.00); // Standard base policy baseline
+        BigDecimal base = BigDecimal.valueOf(1100.00); // Standard policy baseline default
+        try {
+            Map<String, Object> premiumResp = premiumClient.getPremiumByPolicy(policy.getPolicyId());
+            if (premiumResp != null && premiumResp.get("totalPremium") != null) {
+                base = new BigDecimal(premiumResp.get("totalPremium").toString());
+            }
+        } catch (Exception e) {
+            log.warn("Could not retrieve current premium from PremiumService for policy {}: {}. Defaulting to: {}",
+                    policy.getPolicyId(), e.getMessage(), base);
+        }
+
         switch (type) {
             case ADD_MEMBER -> {
                 return base.add(BigDecimal.valueOf(150.00)); // +150 per added dependent member

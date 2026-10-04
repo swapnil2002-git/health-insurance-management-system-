@@ -27,8 +27,8 @@
     <form (ngSubmit)="onSearch()" class="search-form">
       <mat-icon class="search-icon">search</mat-icon>
       <mat-form-field appearance="outline" class="search-field">
-        <mat-label>Enter Policy ID (UUID) to Inspect Dossier</mat-label>
-        <input matInput [(ngModel)]="policyIdInput" name="policyIdInput" placeholder="e.g. 558597b5-be4a-43d0-b1cf-bbcb2cf56e1e">
+        <mat-label>Enter Policy No. (e.g. POL-2026-...) or Policy ID (UUID)</mat-label>
+        <input matInput [(ngModel)]="policyIdInput" name="policyIdInput" placeholder="e.g. POL-2026-0DC04122 or 558597b5-be4a-43d0-b1cf-bbcb2cf56e1e">
       </mat-form-field>
       <button mat-flat-button color="primary" type="submit" [disabled]="!policyIdInput || isLoading" class="search-btn">
         <mat-icon [class.spinning]="isLoading">search</mat-icon>

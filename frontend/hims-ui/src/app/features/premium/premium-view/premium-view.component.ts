@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PremiumService } from '../../../core/services/premium.service';
+import { PolicyService } from '../../../core/services/policy.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import {
   PremiumScheduleResponse,
@@ -23,6 +24,7 @@ export class PremiumViewComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private premiumService: PremiumService,
+    private policyService: PolicyService,
     private notificationService: NotificationService
   ) {}
 
@@ -45,8 +47,29 @@ export class PremiumViewComponent implements OnInit {
   }
 
   onSearch(): void {
-    if (this.policyIdInput.trim()) {
-      this.fetchSchedule(this.policyIdInput.trim());
+    const raw = (this.policyIdInput || '').trim();
+    if (!raw) return;
+
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(raw);
+    if (isUuid) {
+      this.fetchSchedule(raw);
+    } else {
+      this.isLoading = true;
+      this.policyService.getAllPolicies().subscribe({
+        next: (policies) => {
+          const match = (policies || []).find(
+            (p) =>
+              (p.policyNumber && p.policyNumber.toLowerCase() === raw.toLowerCase()) ||
+              (p.policyId && p.policyId.toLowerCase() === raw.toLowerCase())
+          );
+          if (match) {
+            this.fetchSchedule(match.policyId);
+          } else {
+            this.fetchSchedule(raw);
+          }
+        },
+        error: () => this.fetchSchedule(raw)
+      });
     }
   }
 

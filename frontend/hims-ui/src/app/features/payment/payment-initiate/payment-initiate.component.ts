@@ -50,6 +50,8 @@ export class PaymentInitiateComponent implements OnInit {
 
   isSubmitting = false;
   isLoadingPolicy = false;
+  paymentReason: string = '';
+  preselectedDeltaAmount: number | null = null;
   modalData: PaymentInitiateModalData | null = null;
 
   paymentMethods: { value: PaymentMethod; label: string; icon: string; description: string }[] = [
@@ -73,6 +75,9 @@ export class PaymentInitiateComponent implements OnInit {
     this.initForm();
 
     this.route.queryParams.subscribe((params) => {
+      if (params['reason']) {
+        this.paymentReason = params['reason'];
+      }
       const p = params['policyId'] || params['policyNumber'];
       if (p) {
         this.policyInput = p;
@@ -81,7 +86,8 @@ export class PaymentInitiateComponent implements OnInit {
         this.initiateForm.patchValue({ installmentId: params['installmentId'] });
       }
       if (params['amount']) {
-        this.initiateForm.patchValue({ amount: Number(params['amount']) });
+        this.preselectedDeltaAmount = Number(params['amount']);
+        this.initiateForm.patchValue({ amount: this.preselectedDeltaAmount });
       }
     });
   }
@@ -102,12 +108,14 @@ export class PaymentInitiateComponent implements OnInit {
       return;
     }
 
+    const targetAmount = preselectedAmount || (this.preselectedDeltaAmount ? String(this.preselectedDeltaAmount) : undefined);
+
     this.isLoadingPolicy = true;
     this.schedule = null;
     this.availableInstallments = [];
     this.selectedInstallment = null;
     this.resolvedPolicy = null;
-    this.initiateForm.patchValue({ installmentId: '', amount: null });
+    this.initiateForm.patchValue({ installmentId: '', amount: targetAmount ? Number(targetAmount) : null });
 
     const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(raw);
 
@@ -117,7 +125,7 @@ export class PaymentInitiateComponent implements OnInit {
         next: (p) => (this.resolvedPolicy = p),
         error: () => {}
       });
-      this.fetchSchedule(raw, preselectedInstallmentId, preselectedAmount);
+      this.fetchSchedule(raw, preselectedInstallmentId, targetAmount);
     } else {
       // Find policy by Policy Number
       this.policyService.getAllPolicies().subscribe({
@@ -130,15 +138,15 @@ export class PaymentInitiateComponent implements OnInit {
           if (match) {
             this.resolvedPolicy = match;
             this.initiateForm.patchValue({ policyId: match.policyId });
-            this.fetchSchedule(match.policyId, preselectedInstallmentId, preselectedAmount);
+            this.fetchSchedule(match.policyId, preselectedInstallmentId, targetAmount);
           } else {
             this.initiateForm.patchValue({ policyId: raw });
-            this.fetchSchedule(raw, preselectedInstallmentId, preselectedAmount);
+            this.fetchSchedule(raw, preselectedInstallmentId, targetAmount);
           }
         },
         error: () => {
           this.initiateForm.patchValue({ policyId: raw });
-          this.fetchSchedule(raw, preselectedInstallmentId, preselectedAmount);
+          this.fetchSchedule(raw, preselectedInstallmentId, targetAmount);
         }
       });
     }
@@ -160,9 +168,20 @@ export class PaymentInitiateComponent implements OnInit {
             }
           }
 
-          // Auto-select first pending or partially paid installment
+          if (preselectedAmount) {
+            const targetNum = Number(preselectedAmount);
+            const deltaMatch = this.availableInstallments.find((i) =>
+              i.status !== 'PAID' && (i.outstandingAmount === targetNum || i.amount === targetNum)
+            );
+            if (deltaMatch) {
+              this.selectInstallment(deltaMatch, targetNum);
+              return;
+            }
+          }
+
+          // Auto-select first pending or partially paid installment, preserving preselected amount
           const firstPending = this.availableInstallments.find((i) => i.status !== 'PAID') || this.availableInstallments[0];
-          this.selectInstallment(firstPending);
+          this.selectInstallment(firstPending, preselectedAmount ? Number(preselectedAmount) : undefined);
         }
 
         this.notificationService.success(
@@ -180,6 +199,7 @@ export class PaymentInitiateComponent implements OnInit {
       }
     });
   }
+
 
   onInstallmentSelect(installmentId: string): void {
     const found = this.availableInstallments.find((i) => i.installmentId === installmentId);

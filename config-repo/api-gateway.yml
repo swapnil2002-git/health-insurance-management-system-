@@ -32,14 +32,14 @@ spring:
           uri: lb://underwriting-service
           predicates:
             - Path=/api/underwriting/**
+        - id: premium-service
+          uri: lb://premium-service
+          predicates:
+            - Path=/api/premium-schedules/**,/api/policies/*/premium,/api/policies/*/premium/**
         - id: policy-service
           uri: lb://policy-service
           predicates:
             - Path=/api/policies/**
-        - id: premium-service
-          uri: lb://premium-service
-          predicates:
-            - Path=/api/premium-schedules/**,/api/policies/*/premium/**
         - id: payment-service
           uri: lb://payment-service
           predicates:

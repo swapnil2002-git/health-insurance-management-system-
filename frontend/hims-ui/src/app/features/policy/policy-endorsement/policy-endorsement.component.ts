@@ -294,13 +294,24 @@ export class PolicyEndorsementComponent implements OnInit {
     });
   }
 
+  getEndorsementDelta(e: PolicyEndorsementResponse): number {
+    switch (e.endorsementType) {
+      case 'ADD_MEMBER': return 150.00;
+      case 'RIDER_ADDITION': return 50.00;
+      case 'COVERAGE_CHANGE': return 80.00;
+      default: return 150.00;
+    }
+  }
+
   payEndorsementPremium(e: PolicyEndorsementResponse): void {
     if (!this.policy) return;
-    const premiumToPay = e.revisedPremium || 150;
+    const deltaAmount = this.getEndorsementDelta(e);
     this.router.navigate(['/payments/pay'], {
       queryParams: {
         policyId: this.policy.policyId,
-        amount: premiumToPay
+        amount: deltaAmount,
+        endorsementId: e.endorsementId,
+        reason: `Endorsement Adjustment (${e.endorsementType})`
       }
     });
   }

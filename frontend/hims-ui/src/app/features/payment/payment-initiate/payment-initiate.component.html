@@ -142,6 +142,15 @@
         <h3>Contract & Installment Details</h3>
       </div>
 
+      <!-- Endorsement Adjustment Advisory Banner -->
+      <div *ngIf="paymentReason" class="endorsement-alert-banner">
+        <mat-icon color="accent">tune</mat-icon>
+        <div class="banner-text">
+          <strong>Endorsement Fee Collection:</strong> {{ paymentReason }}.
+          <span>Amount due for this adjustment: <strong>{{ initiateForm.get('amount')?.value | currency:'USD' }}</strong></span>
+        </div>
+      </div>
+
       <!-- Policy Search & Installment Dropdown Row -->
       <div class="search-form-row">
         <!-- 1. Policy No / Policy ID Input -->
